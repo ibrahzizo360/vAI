@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "installCommand": "pnpm install",
+  "devCommand": "next dev",
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
