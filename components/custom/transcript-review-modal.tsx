@@ -192,12 +192,22 @@ export function TranscriptReviewModal({ isOpen, onClose, transcriptData }: Trans
             
             {/* AI Summary */}
             <div className="bg-blue-50 p-3 sm:p-4 rounded-md border border-blue-200">
-              <h4 className="font-semibold text-sm text-blue-800 mb-2">Clinical Summary</h4>
+              <h4 className="font-semibold text-sm text-blue-800 mb-2">🧠 Clinical Summary</h4>
               <div className="text-gray-700 text-sm leading-relaxed">
                 {(() => {
                   const analysis = transcriptData.analysis
+                  const rawText = transcriptData.rawText || sampleTranscript
+                  
                   if (!analysis) {
-                    return <div>AI analysis is processing the transcript content to generate a clinical summary...</div>
+                    // If no analysis yet, just show the raw transcript if available
+                    if (rawText && rawText.trim().length > 20) {
+                      return (
+                        <div className="text-gray-700 leading-relaxed">
+                          {rawText}
+                        </div>
+                      )
+                    }
+                    return <div className="text-gray-600 italic">🔄 Processing transcription...</div>
                   }
 
                   // Check different possible locations for clinical content
@@ -206,90 +216,165 @@ export function TranscriptReviewModal({ isOpen, onClose, transcriptData }: Trans
                   const sections = structuredNote?.sections
 
                   if (sections && Object.keys(sections).length > 0) {
+                    // Check if we have any actual content (non-empty sections)
+                    const hasActualContent = Object.values(sections).some(content => 
+                      content && typeof content === 'string' && content.trim().length > 0
+                    ) || (clinicalDoc.key_findings && (
+                      clinicalDoc.key_findings.symptoms?.length > 0 ||
+                      clinicalDoc.key_findings.examinations?.length > 0 ||
+                      clinicalDoc.key_findings.medications?.length > 0 ||
+                      clinicalDoc.key_findings.procedures?.length > 0 ||
+                      clinicalDoc.key_findings.diagnoses?.length > 0 ||
+                      clinicalDoc.key_findings.plans?.length > 0
+                    ))
+
+                    if (!hasActualContent) {
+                      // If no actual clinical content, fall through to the transcript-only display
+                      return null
+                    }
+
                     return (
-                      <div className="space-y-3">
-                        <div className="font-semibold text-blue-800">
-                          {clinicalDoc.encounter_info?.type?.toUpperCase() || 'CLINICAL ENCOUNTER'} - {clinicalDoc.encounter_info?.date || new Date().toLocaleDateString()}
-                        </div>
-                        
-                        {sections.subjective && (
-                          <div>
-                            <div className="font-medium text-gray-800">Patient History/Subjective:</div>
-                            <div className="ml-2 text-gray-700">{sections.subjective}</div>
-                          </div>
-                        )}
-                        
-                        {sections.objective && (
-                          <div>
-                            <div className="font-medium text-gray-800">Examination Findings:</div>
-                            <div className="ml-2 text-gray-700">{sections.objective}</div>
-                          </div>
-                        )}
-                        
-                        {sections.assessment_plan && (
-                          <div>
-                            <div className="font-medium text-gray-800">Assessment & Plan:</div>
-                            <div className="ml-2 text-gray-700">{sections.assessment_plan}</div>
-                          </div>
-                        )}
-
-                        {clinicalDoc.key_findings && (
-                          <div className="space-y-1">
-                            {clinicalDoc.key_findings.symptoms?.length > 0 && (
-                              <div>
-                                <span className="font-medium text-gray-800">Symptoms noted:</span>
-                                <span className="ml-2">{clinicalDoc.key_findings.symptoms.join(', ')}</span>
+                      <div className="space-y-4 font-mono text-xs leading-relaxed">
+                        {/* Header - only show if we have header data */}
+                        {((sections.patient_name || clinicalDoc.patient_info?.name || clinicalDoc.patient_info?.mrn) ||
+                          (clinicalDoc.encounter_info?.date || clinicalDoc.encounter_info?.time) ||
+                          clinicalDoc.encounter_info?.type) && (
+                          <div className="bg-blue-100 p-2 rounded border-l-4 border-blue-500">
+                            {(sections.patient_name || clinicalDoc.patient_info?.name || clinicalDoc.patient_info?.mrn) && (
+                              <div className="font-bold text-blue-900">
+                                📌 Patient: {sections.patient_name || clinicalDoc.patient_info?.name || clinicalDoc.patient_info?.mrn}
                               </div>
                             )}
-                            {clinicalDoc.key_findings.medications?.length > 0 && (
-                              <div>
-                                <span className="font-medium text-gray-800">Medications discussed:</span>
-                                <span className="ml-2">{clinicalDoc.key_findings.medications.join(', ')}</span>
+                            {(clinicalDoc.encounter_info?.date || clinicalDoc.encounter_info?.time) && (
+                              <div className="text-blue-800">
+                                🕒 {clinicalDoc.encounter_info?.date && clinicalDoc.encounter_info.date}{clinicalDoc.encounter_info?.time && ` – ${clinicalDoc.encounter_info.time}`}
                               </div>
                             )}
-                            {clinicalDoc.key_findings.procedures?.length > 0 && (
-                              <div>
-                                <span className="font-medium text-gray-800">Procedures mentioned:</span>
-                                <span className="ml-2">{clinicalDoc.key_findings.procedures.join(', ')}</span>
+                            {clinicalDoc.encounter_info?.type && (
+                              <div className="text-blue-800">
+                                🏥 {(() => {
+                                  const typeMap: { [key: string]: string } = {
+                                    'consult': 'CONSULTATION',
+                                    'rounds': 'ROUNDS',
+                                    'family_meeting': 'FAMILY MEETING',
+                                    'procedure': 'PROCEDURE',
+                                    'discharge': 'DISCHARGE'
+                                  }
+                                  return typeMap[clinicalDoc.encounter_info.type] || clinicalDoc.encounter_info.type.replace('_', ' ').toUpperCase()
+                                })()}
                               </div>
                             )}
                           </div>
                         )}
 
-                        <div className="pt-2 border-t border-gray-200 text-xs text-gray-600">
-                          {clinicalDoc.encounter_info?.providers?.length > 0 && (
-                            <span>Provider: {clinicalDoc.encounter_info.providers[0]}</span>
-                          )}
-                          {clinicalDoc.encounter_info?.location && (
-                            <span> • Location: {clinicalDoc.encounter_info.location}</span>
-                          )}
-                        </div>
+                        {/* Current Status */}
+                        {(sections.current_status || sections.subjective) && (
+                          <div>
+                            <div className="font-bold text-gray-900">🩺 Current Status:</div>
+                            <div className="ml-4 text-gray-700 bg-gray-50 p-2 rounded">
+                              {sections.current_status || sections.subjective}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Neuro Exam */}
+                        {(sections.neuro_exam || sections.objective) && (
+                          <div>
+                            <div className="font-bold text-gray-900">🧠 Neuro Exam:</div>
+                            <div className="ml-4 text-gray-700 bg-gray-50 p-2 rounded">
+                              {sections.neuro_exam || sections.objective}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Investigations */}
+                        {(sections.investigations || (clinicalDoc.key_findings?.examinations?.length > 0)) && (
+                          <div>
+                            <div className="font-bold text-gray-900">🧪 Investigations:</div>
+                            <div className="ml-4 text-gray-700 bg-gray-50 p-2 rounded">
+                              {sections.investigations || clinicalDoc.key_findings.examinations.join('; ')}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Clinical Insights */}
+                        {sections.clinical_insights && (
+                          <div>
+                            <div className="font-bold text-gray-900">🧰 Clinical Insights:</div>
+                            <div className="ml-4 text-gray-700 bg-gray-50 p-2 rounded">
+                              {sections.clinical_insights}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Management Plan */}
+                        {(sections.management_plan || sections.assessment_plan) && (
+                          <div>
+                            <div className="font-bold text-gray-900">📝 Management Plan:</div>
+                            <div className="ml-4 text-gray-700 bg-gray-50 p-2 rounded whitespace-pre-line">
+                              {sections.management_plan || sections.assessment_plan}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Patient/Family Communication */}
+                        {sections.patient_family_communication && (
+                          <div>
+                            <div className="font-bold text-gray-900">🗣️ Patient/Family Communication:</div>
+                            <div className="ml-4 text-gray-700 bg-gray-50 p-2 rounded">
+                              {sections.patient_family_communication}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Follow-Up Plan */}
+                        {(sections.follow_up_plan || clinicalDoc.follow_up_items?.length > 0) && (
+                          <div>
+                            <div className="font-bold text-gray-900">📆 Follow-Up Plan:</div>
+                            <div className="ml-4 text-gray-700 bg-gray-50 p-2 rounded">
+                              {sections.follow_up_plan || 
+                               (clinicalDoc.follow_up_items?.map((item: any) => `• ${item.item}`).join('\n') || '')}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )
                   }
 
-                  // Fallback - create a more meaningful summary from the raw transcript
-                  const rawText = transcriptData.rawText || sampleTranscript
+                  // Fallback - only show what's actually in the transcript
                   if (rawText && rawText.trim().length > 20) {
                     return (
-                      <div className="space-y-3">
-                        <div className="font-semibold text-blue-800">
-                          CLINICAL ENCOUNTER - {new Date().toLocaleDateString()}
+                      <div className="space-y-4 font-mono text-xs leading-relaxed">
+                        {/* Header - only show if we have data */}
+                        <div className="bg-blue-100 p-2 rounded border-l-4 border-blue-500">
+                          {patientId && (
+                            <div className="font-bold text-blue-900">
+                              📌 Patient: {patientId}
+                            </div>
+                          )}
+                          {context && (
+                            <div className="text-blue-800">
+                              🏥 {mapContextToEncounterType(context).replace('_', ' ').toUpperCase()}
+                            </div>
+                          )}
                         </div>
+
+                        {/* Raw transcript content only */}
                         <div>
-                          <div className="font-medium text-gray-800">Summary of Discussion:</div>
-                          <div className="ml-2 text-gray-700">
-                            {rawText.length > 200 ? rawText.substring(0, 200) + '...' : rawText}
+                          <div className="font-bold text-gray-900">🧰 Clinical Discussion:</div>
+                          <div className="ml-4 text-gray-700 bg-gray-50 p-2 rounded">
+                            {rawText.length > 300 ? rawText.substring(0, 300) + '...' : rawText}
                           </div>
-                        </div>
-                        <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
-                          Generated from transcript content • {rawText.trim().split(' ').length} words documented
                         </div>
                       </div>
                     )
                   }
 
-                  return <div>This clinical encounter involved patient assessment and care planning. Full transcript details are available above for manual review.</div>
+                  return (
+                    <div className="text-gray-600 italic text-center py-4">
+                      ⚠️ No transcript content available for clinical analysis
+                    </div>
+                  )
                 })()}
               </div>
             </div>

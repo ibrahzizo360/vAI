@@ -90,8 +90,17 @@ export class ClinicalDocumentationService {
     const meetingTerms = ['family', 'goals of care', 'prognosis', 'decision', 'meeting', 'discuss']
     const meetingScore = meetingTerms.filter(term => lowerTranscript.includes(term)).length
     
-    // Consultation indicators
-    const consultTerms = ['new patient', 'referral', 'consult', 'chief complaint', 'history']
+    // Enhanced consultation indicators
+    const consultTerms = [
+      'new patient', 'referral', 'consult', 'chief complaint', 'history',
+      'good morning', 'good afternoon', 'good evening', 'how are you feeling',
+      'what brings you', 'experiencing', 'symptoms', 'bothering me',
+      'came in', 'doctor', 'let me ask', 'order', 'assessment', 'important to',
+      'consider', 'baseline', 'determine if', 'i\'m glad you came in',
+      'not to ignore', 'better understand', 'condition', 'ask you a few questions',
+      'have you noticed', 'any history', 'family', 'based on your symptoms',
+      'i\'d like to order', 'help us determine'
+    ]
     const consultScore = consultTerms.filter(term => lowerTranscript.includes(term)).length
     
     // Round indicators
@@ -103,8 +112,12 @@ export class ClinicalDocumentationService {
       return { templateId: 'family_meeting', encounterType: 'family_meeting', confidence: 0.8 + (meetingScore * 0.05) }
     }
     
-    if (consultScore >= 2 && neuroScore >= 1) {
-      return { templateId: 'neuro_consult', encounterType: 'consult', confidence: 0.75 + (consultScore * 0.05) }
+    // Enhanced consultation detection
+    if (consultScore >= 3) {
+      if (neuroScore >= 1) {
+        return { templateId: 'neuro_consult', encounterType: 'consult', confidence: 0.8 + (consultScore * 0.02) }
+      }
+      return { templateId: 'neuro_consult', encounterType: 'consult', confidence: 0.75 + (consultScore * 0.02) }
     }
     
     if (neuroScore >= 2 && roundScore >= 1) {
@@ -115,7 +128,12 @@ export class ClinicalDocumentationService {
       return { templateId: 'progress_note', encounterType: 'rounds', confidence: 0.6 }
     }
 
-    // Default to progress note
+    // Better default - if we have consultation indicators, default to consult
+    if (consultScore >= 1) {
+      return { templateId: 'neuro_consult', encounterType: 'consult', confidence: 0.6 }
+    }
+
+    // Final fallback
     return { templateId: 'progress_note', encounterType: 'rounds', confidence: 0.5 }
   }
 
@@ -135,25 +153,102 @@ export class ClinicalDocumentationService {
 
     const lowerTranscript = transcript.toLowerCase()
 
-    // Extract symptoms
-    const symptomPatterns = [
-      /headache|pain|nausea|vomiting|weakness|numbness|confusion|dizziness/gi,
-      /not feeling well|tired|fatigue|difficulty/gi
+    // Enhanced symptom extraction for conversational transcripts
+    const sentences = transcript.split(/[.!?]/).map(s => s.trim()).filter(s => s.length > 0)
+    
+    sentences.forEach(sentence => {
+      const lowerSentence = sentence.toLowerCase()
+      
+      // Direct symptom mentions with "experiencing", "having", "feeling"
+      const experiencingMatch = sentence.match(/(?:experiencing|having|feeling)\s+(?:some\s+)?([^.,!?]+)/gi)
+      if (experiencingMatch) {
+        experiencingMatch.forEach(match => {
+          const symptom = match.replace(/^(experiencing|having|feeling)\s+(?:some\s+)?/i, '').trim()
+          if (symptom.length > 2 && symptom.length < 50) {
+            findings.symptoms.push(this.normalizeText(symptom))
+          }
+        })
+      }
+      
+      // Pain mentions with location
+      const painMatches = [
+        sentence.match(/(?:pain|ache|aching|hurt|hurting)\s+in\s+(?:my\s+|the\s+)?([^.,!?]+)/gi),
+        sentence.match(/([^.,!?\s]+)\s+(?:pain|ache)/gi),
+        sentence.match(/chest\s+pain|back\s+pain|head\s+pain|stomach\s+pain|abdominal\s+pain/gi)
+      ].flat().filter(Boolean)
+      
+      if (painMatches) {
+        painMatches.forEach(match => {
+          if (match && typeof match === 'string') {
+            findings.symptoms.push(this.normalizeText(match.trim()))
+          }
+        })
+      }
+      
+      // Breathing-related symptoms
+      if (lowerSentence.includes('breath') || lowerSentence.includes('breathing')) {
+        const breathingSymptoms = [
+          'shortness of breath', 'difficulty breathing', 'trouble breathing',
+          'can\'t breathe', 'hard to breathe', 'breathing problems'
+        ]
+        breathingSymptoms.forEach(symptom => {
+          if (lowerSentence.includes(symptom)) {
+            findings.symptoms.push(this.normalizeText(symptom))
+          }
+        })
+      }
+      
+      // Activity-related symptoms
+      if (lowerSentence.includes('when i') || lowerSentence.includes('happens when')) {
+        const activityMatch = sentence.match(/(?:when i|happens when)([^.,!?]+)/gi)
+        if (activityMatch) {
+          activityMatch.forEach(match => {
+            const context = match.replace(/^(when i|happens when)\s*/i, '').trim()
+            if (context.length > 0) {
+              findings.symptoms.push(`Symptoms occur ${context}`)
+            }
+          })
+        }
+      }
+      
+      // Duration mentions
+      const durationMatch = sentence.match(/(?:for|been)\s+(?:about\s+)?(\w+\s+(?:weeks?|months?|days?|years?))/gi)
+      if (durationMatch) {
+        durationMatch.forEach(match => {
+          const duration = match.replace(/^(?:for|been)\s+(?:about\s+)?/i, '').trim()
+          findings.symptoms.push(`Symptoms present for ${duration}`)
+        })
+      }
+    })
+    
+    // Additional pattern-based extraction
+    const additionalPatterns = [
+      /bothering me/gi,
+      /nausea|vomiting|weakness|numbness|confusion|dizziness|fatigue|tired/gi,
+      /not feeling well/gi
     ]
     
-    symptomPatterns.forEach(pattern => {
+    additionalPatterns.forEach(pattern => {
       const matches = transcript.match(pattern)
       if (matches) {
         findings.symptoms.push(...matches.map(m => this.normalizeText(m)))
       }
     })
+    
+    // Remove duplicates and clean up
+    findings.symptoms = [...new Set(findings.symptoms)]
+      .filter(symptom => symptom.length > 2 && symptom.length < 100)
+      .filter(symptom => !symptom.toLowerCase().includes('today') && !symptom.toLowerCase().includes('some pain$'))
+      .map(symptom => symptom.charAt(0).toUpperCase() + symptom.slice(1))
 
-    // Extract examinations
+    // Extract examinations and procedures
     const examPatterns = [
       /gcs\s*\d+|glasgow coma scale/gi,
       /pupils?\s*(equal|reactive|dilated|fixed)/gi,
       /motor\s*\d+\/\d+|strength\s*\d+\/\d+/gi,
-      /alert|oriented|responsive|follows commands/gi
+      /alert|oriented|responsive|follows commands/gi,
+      /electrocardiogram|ecg|ekg/gi,
+      /baseline assessment|electrical activity/gi
     ]
     
     examPatterns.forEach(pattern => {
@@ -162,6 +257,66 @@ export class ClinicalDocumentationService {
         findings.examinations.push(...matches.map(m => this.normalizeText(m)))
       }
     })
+    
+    // Extract procedures mentioned - improved patterns
+    const procedurePatterns = [
+      // Direct procedure ordering
+      /(?:order|ordering|get|obtain)\s+(?:an?\s+)?([\w\s-]+?)(?:\s+to|\s*,|\.|$)/gi,
+      /i'd like to order\s+([^.,!?]+)/gi,
+      /let's (?:order|get|do)\s+(?:an?\s+)?([\w\s-]+)/gi,
+      
+      // Specific medical procedures and tests
+      /electrocardiogram|ecg|ekg/gi,
+      /mri|magnetic resonance imaging/gi,
+      /ct scan|computed tomography/gi,
+      /x-ray|radiograph/gi,
+      /blood test|lab work|laboratory/gi,
+      /ultrasound|sonogram/gi,
+      /biopsy|endoscopy|colonoscopy/gi,
+      /stress test|cardiac catheterization/gi
+    ]
+    
+    procedurePatterns.forEach(pattern => {
+      const matches = [...transcript.matchAll(pattern)]
+      matches.forEach(match => {
+        if (match[1]) {
+          // Clean up captured group
+          const procedure = match[1].trim().replace(/\s+/g, ' ')
+          if (procedure.length > 2 && procedure.length < 80) {
+            findings.procedures.push(this.normalizeText(procedure))
+          }
+        } else if (match[0]) {
+          // Direct match (like ECG, MRI, etc.)
+          const procedure = match[0].trim()
+          if (procedure.length > 2) {
+            findings.procedures.push(this.normalizeText(procedure))
+          }
+        }
+      })
+    })
+    
+    // Look for procedure mentions in context
+    sentences.forEach(sentence => {
+      const lowerSentence = sentence.toLowerCase()
+      
+      // "baseline assessment" type procedures
+      if (lowerSentence.includes('baseline') || lowerSentence.includes('assessment')) {
+        const assessmentMatch = sentence.match(/(?:baseline|assessment)\s+(?:of\s+)?([^.,!?]+)/gi)
+        if (assessmentMatch) {
+          assessmentMatch.forEach(match => {
+            const assessment = match.replace(/^(?:baseline|assessment)\s+(?:of\s+)?/i, '').trim()
+            if (assessment.length > 3 && assessment.length < 50 && !assessment.includes('assessment')) {
+              findings.procedures.push(`Assessment of ${assessment}`)
+            }
+          })
+        }
+      }
+    })
+    
+    // Remove duplicates and clean up procedures
+    findings.procedures = [...new Set(findings.procedures)]
+      .filter(proc => proc.length > 2)
+      .map(proc => proc.charAt(0).toUpperCase() + proc.slice(1))
 
     // Extract medications
     const medicationPattern = /(?:medication|medicine|drug|prescription|taking|prescribed)\s+(\w+)/gi
@@ -178,7 +333,9 @@ export class ClinicalDocumentationService {
       'ct': 'Computed Tomography',
       'mri': 'Magnetic Resonance Imaging',
       'bp': 'Blood Pressure',
-      'hr': 'Heart Rate'
+      'hr': 'Heart Rate',
+      'ecg': 'Electrocardiogram',
+      'ekg': 'Electrocardiogram'
     }
 
     Object.entries(medicalTerms).forEach(([abbrev, full]) => {
@@ -221,7 +378,13 @@ export class ClinicalDocumentationService {
   }
 
   private static generateEncounterInfo(transcript: string, encounterType: string): EncounterInfo {
-    const now = new Date()
+    // Try to extract date from transcript
+    const datePattern = /(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}|january|february|march|april|may|june|july|august|september|october|november|december)/gi
+    const dateMatch = transcript.match(datePattern)
+    
+    // Try to extract time from transcript
+    const timePattern = /(\d{1,2}:\d{2}(?:\s*(?:am|pm))?)/gi
+    const timeMatch = transcript.match(timePattern)
     
     // Try to extract duration from transcript
     const durationMatch = transcript.match(/(\d+)\s*minutes?/i)
@@ -239,12 +402,12 @@ export class ClinicalDocumentationService {
     }
 
     return {
-      date: now.toISOString().split('T')[0],
-      time: now.toTimeString().split(' ')[0].substring(0, 5),
+      date: dateMatch ? dateMatch[0] : '',
+      time: timeMatch ? timeMatch[0] : '',
       type: encounterType as any,
       location: this.extractLocation(transcript),
       duration_minutes: duration,
-      providers: providers.length > 0 ? providers : ['Provider']
+      providers: providers.length > 0 ? providers : []
     }
   }
 
@@ -320,18 +483,54 @@ export class ClinicalDocumentationService {
 
   // Helper methods for content extraction
   private static extractSubjective(transcript: string, medicalExtraction: any): string {
+    const sentences = transcript.split(/[.!?]/).map(s => s.trim()).filter(s => s.length > 0)
+    const subjectiveElements = []
+    
+    // Look for patient's main complaints in early conversation
+    for (let i = 0; i < Math.min(sentences.length, 8); i++) {
+      const sentence = sentences[i]
+      const lowerSentence = sentence.toLowerCase()
+      
+      // Patient describing symptoms
+      if (lowerSentence.includes("i've been") || lowerSentence.includes("experiencing") || lowerSentence.includes("having")) {
+        const symptomMatch = sentence.match(/(?:i've been|experiencing|having)\s+([^.,!?]+)/i)
+        if (symptomMatch && symptomMatch[1].length < 100) {
+          subjectiveElements.push(`Patient reports ${symptomMatch[1].trim()}`)
+        }
+      }
+      
+      // Duration mentions
+      if (lowerSentence.includes("for") && (lowerSentence.includes("week") || lowerSentence.includes("month") || lowerSentence.includes("day"))) {
+        const durationMatch = sentence.match(/for\s+([^.,!?]*(?:week|month|day)[^.,!?]*)/i)
+        if (durationMatch) {
+          subjectiveElements.push(`Duration: ${durationMatch[1].trim()}`)
+        }
+      }
+      
+      // Activity triggers
+      if (lowerSentence.includes("when i") || lowerSentence.includes("happens when")) {
+        const triggerMatch = sentence.match(/(?:when i|happens when)\s+([^.,!?]+)/i)
+        if (triggerMatch) {
+          subjectiveElements.push(`Occurs when ${triggerMatch[1].trim()}`)
+        }
+      }
+    }
+    
+    // If we found specific elements, use them
+    if (subjectiveElements.length > 0) {
+      return subjectiveElements.join('. ') + '.'
+    }
+    
+    // Fallback: use symptoms if available
     const symptoms = medicalExtraction.findings.symptoms
     if (symptoms.length > 0) {
-      return `Patient reports: ${symptoms.join(', ')}.`
+      const mainSymptoms = symptoms.filter(s => !s.toLowerCase().includes('symptoms occur')).slice(0, 2)
+      if (mainSymptoms.length > 0) {
+        return `Patient reports ${mainSymptoms.join(' and ')}.`
+      }
     }
     
-    // Fallback to finding patient statements
-    const patientStatements = transcript.match(/patient (says|reports|states|complains)[^.]+\./gi)
-    if (patientStatements) {
-      return patientStatements.join(' ')
-    }
-    
-    return 'Patient assessment documented during encounter.'
+    return ''
   }
 
   private static extractObjective(transcript: string, medicalExtraction: any): string {
@@ -339,7 +538,8 @@ export class ClinicalDocumentationService {
     if (exams.length > 0) {
       return `Examination findings: ${exams.join(', ')}.`
     }
-    return 'Physical examination findings documented.'
+    // Return empty string instead of generic placeholder
+    return ''
   }
 
   private static extractNeuroExam(transcript: string, medicalExtraction: any): string {
@@ -354,7 +554,8 @@ export class ClinicalDocumentationService {
       return neuroFindings.join('. ') + '.'
     }
     
-    return 'Neurological examination documented.'
+    // Return empty string instead of generic placeholder
+    return ''
   }
 
   private static extractAssessmentPlan(transcript: string, medicalExtraction: any): string {
@@ -369,10 +570,13 @@ export class ClinicalDocumentationService {
       return planContent.join(' ')
     }
     
-    return 'Assessment and plan discussed during encounter.'
+    // Return empty string instead of generic placeholder
+    return ''
   }
 
   private static extractChiefComplaint(transcript: string): string {
+    const lowerTranscript = transcript.toLowerCase()
+    
     // Look for common chief complaint phrases
     const ccPatterns = [
       /chief complaint[^.]+\./gi,
@@ -387,12 +591,62 @@ export class ClinicalDocumentationService {
       }
     }
     
-    return 'Chief complaint discussed.'
+    // Look for "experiencing" or symptom descriptions early in conversation
+    const sentences = transcript.split(/[.!?]/).map(s => s.trim()).filter(s => s.length > 0)
+    
+    for (let i = 0; i < Math.min(sentences.length, 5); i++) {
+      const sentence = sentences[i]
+      const lowerSentence = sentence.toLowerCase()
+      
+      if (lowerSentence.includes('experiencing') || lowerSentence.includes('been having')) {
+        const symptomMatch = sentence.match(/(?:experiencing|been having)\s+([^.,!?]+)/i)
+        if (symptomMatch) {
+          return `Patient reports ${symptomMatch[1].trim()}`
+        }
+      }
+      
+      if (lowerSentence.includes('pain') && lowerSentence.includes('i')) {
+        return sentence.trim()
+      }
+    }
+    
+    return ''
   }
 
   private static extractHPI(transcript: string): string {
-    // Extract history of present illness content
-    return 'History of present illness documented during encounter.'
+    const sentences = transcript.split(/[.!?]/).map(s => s.trim()).filter(s => s.length > 0)
+    const hpiElements = []
+    
+    // Look for duration/timing
+    sentences.forEach(sentence => {
+      const lowerSentence = sentence.toLowerCase()
+      
+      // Duration mentions
+      if (lowerSentence.includes('for') && (lowerSentence.includes('weeks') || lowerSentence.includes('months') || lowerSentence.includes('days'))) {
+        const durationMatch = sentence.match(/(?:for|been)\s+(?:about\s+)?([^.,!?]*(?:weeks?|months?|days?))/i)
+        if (durationMatch) {
+          hpiElements.push(`Duration: ${durationMatch[1].trim()}`)
+        }
+      }
+      
+      // Onset/triggers
+      if (lowerSentence.includes('when') && (lowerSentence.includes('climbing') || lowerSentence.includes('walking') || lowerSentence.includes('physical'))) {
+        const triggerMatch = sentence.match(/when\s+([^.,!?]+)/i)
+        if (triggerMatch) {
+          hpiElements.push(`Triggers: ${triggerMatch[1].trim()}`)
+        }
+      }
+      
+      // Quality/description of symptoms
+      if (lowerSentence.includes('experiencing') || lowerSentence.includes('having')) {
+        const symptomMatch = sentence.match(/(?:experiencing|having)\s+([^.,!?]+)/i)
+        if (symptomMatch) {
+          hpiElements.push(`Symptoms: ${symptomMatch[1].trim()}`)
+        }
+      }
+    })
+    
+    return hpiElements.length > 0 ? hpiElements.join('. ') + '.' : ''
   }
 
   private static extractAttendees(transcript: string): string {
@@ -406,7 +660,7 @@ export class ClinicalDocumentationService {
     if (familyMatches) attendees.push(...familyMatches)
     if (providerMatches) attendees.push(...providerMatches)
     
-    return attendees.length > 0 ? [...new Set(attendees)].join(', ') : 'Meeting attendees documented'
+    return attendees.length > 0 ? [...new Set(attendees)].join(', ') : ''
   }
 
   private static extractDiscussionTopics(transcript: string): string {
@@ -415,11 +669,12 @@ export class ClinicalDocumentationService {
     if (transcript.toLowerCase().includes('treatment')) topics.push('Treatment options')
     if (transcript.toLowerCase().includes('goals')) topics.push('Goals of care')
     
-    return topics.length > 0 ? topics.join('\n') : 'Discussion topics documented'
+    return topics.length > 0 ? topics.join('\n') : ''
   }
 
   private static extractRelevantContent(transcript: string, sectionId: string): string {
-    return `Content for ${sectionId} extracted from transcript.`
+    // Return empty string instead of generic placeholder
+    return ''
   }
 
   // Utility methods
@@ -446,6 +701,6 @@ export class ClinicalDocumentationService {
   private static extractLocation(transcript: string): string {
     const locationPattern = /\b(icu|ward|er|emergency|clinic|room \d+)\b/gi
     const match = transcript.match(locationPattern)
-    return match ? match[0] : 'Clinical setting'
+    return match ? match[0] : ''
   }
 }
