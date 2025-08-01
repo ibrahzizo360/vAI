@@ -3,7 +3,6 @@ import { MedicalNoteTemplate, GeneratedMedicalNote, PatientInfo, EncounterInfo, 
 export interface ClinicalAnalysisResult {
   suggested_template: string
   confidence: number
-  patient_info: PatientInfo
   encounter_info: EncounterInfo
   structured_note: GeneratedMedicalNote
   key_findings: {
@@ -35,12 +34,10 @@ export class ClinicalDocumentationService {
   
   static async analyzeTranscriptForDocumentation(
     transcript: string,
-    patientInfo?: Partial<PatientInfo>,
-    encounterType?: string
   ): Promise<ClinicalAnalysisResult> {
     
     // Analyze transcript to determine appropriate template
-    const templateAnalysis = this.analyzeTemplateNeeds(transcript, encounterType)
+    const templateAnalysis = this.analyzeTemplateNeeds(transcript)
     const template = MedicalNoteTemplateService.getTemplateById(templateAnalysis.templateId)
     
     if (!template) {
@@ -53,19 +50,21 @@ export class ClinicalDocumentationService {
     // Generate encounter info
     const encounterInfo = this.generateEncounterInfo(transcript, templateAnalysis.encounterType)
     
+    // Generate patient info from transcript
+    const patientInfo = this.generatePatientInfo(transcript)
+    
     // Create structured note
     const structuredNote = this.generateStructuredNote(
       transcript,
       template,
-      patientInfo || {},
       encounterInfo,
+      patientInfo,
       medicalExtraction
     )
 
     return {
       suggested_template: template.id,
       confidence: templateAnalysis.confidence,
-      patient_info: { ...patientInfo } as PatientInfo,
       encounter_info: encounterInfo,
       structured_note: structuredNote,
       key_findings: medicalExtraction.findings,
@@ -150,8 +149,6 @@ export class ClinicalDocumentationService {
     const terminology: { term: string, context: string, normalized: string }[] = []
     const timestamps: { section: string, time_mentioned: string, content: string }[] = []
     const followUpItems: { item: string, priority: 'high' | 'medium' | 'low', due_date?: string }[] = []
-
-    const lowerTranscript = transcript.toLowerCase()
 
     // Enhanced symptom extraction for conversational transcripts
     const sentences = transcript.split(/[.!?]/).map(s => s.trim()).filter(s => s.length > 0)
@@ -411,11 +408,57 @@ export class ClinicalDocumentationService {
     }
   }
 
+  private static generatePatientInfo(transcript: string): PatientInfo {
+    // Extract patient name patterns
+    const namePatterns = [
+      /patient\s+(\w+\s+\w+)/gi,
+      /mr\.?\s+(\w+)|mrs?\.?\s+(\w+)/gi,
+      /(\w+\s+\w+)\s+is\s+a\s+\d+/gi
+    ]
+    
+    let name = ''
+    for (const pattern of namePatterns) {
+      const match = transcript.match(pattern)
+      if (match && match[1]) {
+        name = match[1]
+        break
+      }
+    }
+    
+    // Extract age
+    const agePattern = /(\d+)[-\s]?year[-\s]?old|age\s+(\d+)/gi
+    const ageMatch = transcript.match(agePattern)
+    let age: number | undefined
+    if (ageMatch) {
+      const ageStr = ageMatch[0].match(/\d+/)
+      age = ageStr ? parseInt(ageStr[0]) : undefined
+    }
+    
+    // Extract sex/gender
+    const sexPattern = /\b(male|female|man|woman)\b/gi
+    const sexMatch = transcript.match(sexPattern)
+    let sex: string | undefined
+    if (sexMatch) {
+      const gender = sexMatch[0].toLowerCase()
+      sex = gender === 'male' || gender === 'man' ? 'M' : 'F'
+    }
+    
+    // Generate MRN if patient name is found
+    const mrn = name ? `AUTO${Math.random().toString(36).substring(2, 8).toUpperCase()}` : undefined
+    
+    return {
+      name: name || undefined,
+      mrn,
+      age,
+      sex
+    }
+  }
+
   private static generateStructuredNote(
     transcript: string,
     template: MedicalNoteTemplate,
-    patientInfo: Partial<PatientInfo>,
     encounterInfo: EncounterInfo,
+    patientInfo: PatientInfo,
     medicalExtraction: any
   ): GeneratedMedicalNote {
     
@@ -433,7 +476,7 @@ export class ClinicalDocumentationService {
     return {
       template_id: template.id,
       template_name: template.name,
-      patient: patientInfo as PatientInfo,
+      patient: patientInfo,
       encounter: encounterInfo,
       sections,
       created_at: new Date().toISOString(),
@@ -446,10 +489,8 @@ export class ClinicalDocumentationService {
     sectionId: string,
     transcript: string,
     medicalExtraction: any,
-    template: MedicalNoteTemplate
+    _template: MedicalNoteTemplate
   ): string {
-    const lowerTranscript = transcript.toLowerCase()
-    
     switch (sectionId) {
       case 'subjective':
         return this.extractSubjective(transcript, medicalExtraction)
@@ -524,7 +565,7 @@ export class ClinicalDocumentationService {
     // Fallback: use symptoms if available
     const symptoms = medicalExtraction.findings.symptoms
     if (symptoms.length > 0) {
-      const mainSymptoms = symptoms.filter(s => !s.toLowerCase().includes('symptoms occur')).slice(0, 2)
+      const mainSymptoms = symptoms.filter((s: string) => !s.toLowerCase().includes('symptoms occur')).slice(0, 2)
       if (mainSymptoms.length > 0) {
         return `Patient reports ${mainSymptoms.join(' and ')}.`
       }
@@ -533,7 +574,7 @@ export class ClinicalDocumentationService {
     return ''
   }
 
-  private static extractObjective(transcript: string, medicalExtraction: any): string {
+  private static extractObjective(_transcript: string, medicalExtraction: any): string {
     const exams = medicalExtraction.findings.examinations
     if (exams.length > 0) {
       return `Examination findings: ${exams.join(', ')}.`
@@ -542,7 +583,7 @@ export class ClinicalDocumentationService {
     return ''
   }
 
-  private static extractNeuroExam(transcript: string, medicalExtraction: any): string {
+  private static extractNeuroExam(_transcript: string, medicalExtraction: any): string {
     const neuroFindings = medicalExtraction.findings.examinations.filter((exam: string) => 
       exam.toLowerCase().includes('gcs') || 
       exam.toLowerCase().includes('pupil') || 
@@ -575,8 +616,6 @@ export class ClinicalDocumentationService {
   }
 
   private static extractChiefComplaint(transcript: string): string {
-    const lowerTranscript = transcript.toLowerCase()
-    
     // Look for common chief complaint phrases
     const ccPatterns = [
       /chief complaint[^.]+\./gi,
@@ -615,7 +654,7 @@ export class ClinicalDocumentationService {
 
   private static extractHPI(transcript: string): string {
     const sentences = transcript.split(/[.!?]/).map(s => s.trim()).filter(s => s.length > 0)
-    const hpiElements = []
+    const hpiElements: string[] = []
     
     // Look for duration/timing
     sentences.forEach(sentence => {
@@ -672,7 +711,7 @@ export class ClinicalDocumentationService {
     return topics.length > 0 ? topics.join('\n') : ''
   }
 
-  private static extractRelevantContent(transcript: string, sectionId: string): string {
+  private static extractRelevantContent(_transcript: string, _sectionId: string): string {
     // Return empty string instead of generic placeholder
     return ''
   }

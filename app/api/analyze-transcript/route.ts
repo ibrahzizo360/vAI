@@ -8,14 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB()
     
-    const { transcript, speakers, metadata, patient_info, encounter_type, save_to_db = true } = await request.json()
-    
-    // Log incoming data for debugging
-    console.log('Clinical documentation request received:')
-    console.log('- Transcript length:', transcript?.length || 0)
-    console.log('- Patient info:', patient_info)
-    console.log('- Encounter type:', encounter_type)
-    console.log('- Save to DB:', save_to_db)
+    const { transcript } = await request.json()
     
     if (!transcript) {
       return NextResponse.json(
@@ -33,109 +26,11 @@ export async function POST(request: NextRequest) {
 
     // Use clinical documentation service for proper medical note generation
     const clinicalAnalysis = await ClinicalDocumentationService.analyzeTranscriptForDocumentation(
-      transcript,
-      patient_info,
-      encounter_type
+      transcript
     )
 
     // Find or create patient if patient info is provided
     let patient = null
-    let savedNote = null
-    
-    if (save_to_db && patient_info) {
-      try {
-        // Try to find existing patient by MRN or name
-        if (patient_info.mrn) {
-          patient = await Patient.findOne({ mrn: patient_info.mrn })
-        } else if (patient_info.name) {
-          patient = await Patient.findOne({ name: patient_info.name })
-        }
-        
-        // If patient not found and we have enough info, create new patient
-        if (!patient && patient_info.name) {
-          const newPatientData = {
-            mrn: patient_info.mrn || await generateUniqueMRN(),
-            name: patient_info.name,
-            dob: patient_info.dob || new Date('1980-01-01'),
-            age: patient_info.age || 45,
-            sex: patient_info.sex || 'M',
-            primary_diagnosis: extractPrimaryDiagnosis(transcript),
-            secondary_diagnoses: [],
-            admission_date: new Date(),
-            admission_source: 'ER',
-            gcs_admission: extractGCS(transcript) || 15,
-            current_location: clinicalAnalysis.encounter_info.location || 'Neurosurgery Ward',
-            attending_physician: clinicalAnalysis.encounter_info.providers[0] || 'Dr. Attending',
-            status: 'Active',
-            monitoring: {
-              icp_monitor: transcript.toLowerCase().includes('icp'),
-              evd: transcript.toLowerCase().includes('evd'),
-              ventilator: transcript.toLowerCase().includes('ventilator'),
-              other_devices: []
-            },
-            emergency_contacts: [],
-            past_medical_history: [],
-            allergies: ['NKDA'],
-            medications: []
-          }
-          
-          patient = new Patient(newPatientData)
-          await patient.save()
-          console.log('Created new patient:', patient.mrn)
-        }
-        
-        // Save clinical note if patient exists
-        if (patient) {
-          const noteData = {
-            patient_id: patient._id,
-            encounter_date: new Date(clinicalAnalysis.encounter_info.date),
-            encounter_time: clinicalAnalysis.encounter_info.time,
-            encounter_type: clinicalAnalysis.encounter_info.type,
-            encounter_location: clinicalAnalysis.encounter_info.location,
-            duration_minutes: clinicalAnalysis.encounter_info.duration_minutes,
-            
-            template_id: clinicalAnalysis.suggested_template,
-            template_name: clinicalAnalysis.structured_note.template_name,
-            note_sections: new Map(Object.entries(clinicalAnalysis.structured_note.sections)),
-            
-            audio_metadata: {
-              duration_seconds: metadata?.duration || 0,
-              transcription_provider: 'groq',
-              transcription_confidence: metadata?.confidence || 0.9,
-              speaker_count: metadata?.speaker_count || 0
-            },
-            
-            extracted_content: {
-              symptoms: clinicalAnalysis.key_findings.symptoms,
-              vital_signs: extractVitalSigns(transcript),
-              medications_mentioned: clinicalAnalysis.key_findings.medications,
-              procedures_mentioned: clinicalAnalysis.key_findings.procedures,
-              diagnoses_mentioned: clinicalAnalysis.key_findings.diagnoses,
-              follow_up_items: clinicalAnalysis.follow_up_items
-            },
-            
-            primary_provider: clinicalAnalysis.encounter_info.providers[0] || 'Provider',
-            attending_physician: patient.attending_physician,
-            other_providers: clinicalAnalysis.encounter_info.providers.slice(1),
-            family_present: [],
-            
-            status: 'draft',
-            tags: generateTags(transcript, patient),
-            urgency: determineUrgency(transcript),
-            completeness_score: 0
-          }
-          
-          savedNote = new ClinicalNote(noteData)
-          await savedNote.save()
-          await savedNote.populate('patient_id', 'name mrn primary_diagnosis')
-          console.log('Saved clinical note:', savedNote._id)
-        }
-        
-      } catch (dbError) {
-        console.error('Database operation failed:', dbError)
-        // Continue without saving to DB
-      }
-    }
 
     // Enhance with AI analysis if LiteLLM is available
     let aiEnhancement = null
@@ -148,13 +43,6 @@ export async function POST(request: NextRequest) {
     const response = {
       clinical_documentation: clinicalAnalysis,
       ai_enhancement: aiEnhancement,
-      database_info: {
-        patient_found: !!patient,
-        patient_id: patient?._id,
-        patient_mrn: patient?.mrn,
-        note_saved: !!savedNote,
-        note_id: savedNote?._id
-      },
       generation_metadata: {
         generated_at: new Date().toISOString(),
         transcript_length: transcript.length,

@@ -40,11 +40,7 @@ export function AnalysisDebugger() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          transcript: transcript.trim(),
-          metadata: { debug: true },
-          patient_info: {},
-          encounter_type: undefined, // Let it auto-detect
-          save_to_db: false // Don't save debug tests
+          transcript: transcript.trim()
         }),
       })
 
@@ -176,7 +172,7 @@ export function AnalysisDebugger() {
                           {sectionId.replace(/_/g, ' ')}
                         </h4>
                         <div className="text-sm bg-gray-50 p-3 rounded">
-                          {content || <em className="text-gray-500">No content extracted</em>}
+                          {String(content)}
                         </div>
                       </div>
                     ))}
