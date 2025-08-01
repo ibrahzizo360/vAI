@@ -29,9 +29,6 @@ export async function POST(request: NextRequest) {
       transcript
     )
 
-    // Find or create patient if patient info is provided
-    let patient = null
-
     // Enhance with AI analysis if LiteLLM is available
     let aiEnhancement = null
     try {

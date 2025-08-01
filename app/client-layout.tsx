@@ -5,7 +5,6 @@ import { Montserrat } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { FloatingRecordingControls } from "@/components/custom/floating-recording-controls"
 import { TranscriptReviewModal } from "@/components/custom/transcript-review-modal"
-import { PWAInstallButton } from "@/components/custom/pwa-install-button"
 import { useState, useEffect } from "react"
 
 interface TranscriptionData {
@@ -69,8 +68,6 @@ export default function ClientLayout({
       disableTransitionOnChange
     >
       {children} {/* This renders your page content */}
-      {/* PWA install button */}
-      <PWAInstallButton />
       {/* Floating controls and modal are now global */}
       <FloatingRecordingControls onRecordingStop={handleRecordingStop} />
       <TranscriptReviewModal
