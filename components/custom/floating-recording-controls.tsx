@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Pause, Play, StopCircle, Flag, Mic, Loader2 } from "lucide-react"
+import { Pause, Play, StopCircle, Mic, Loader2, X } from "lucide-react"
 import { useAudioLevel } from "@/hooks/useAudioLevel"
 import { CircularAudioLevelVisualizer } from "./audio-level-visualizer"
 import { TranscriptionClient } from "@/lib/client/transcription-client"
@@ -176,6 +176,32 @@ export function FloatingRecordingControls({ onRecordingStop }: FloatingRecording
     }
   }
 
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      // Override the onstop handler first to prevent processing
+      mediaRecorderRef.current.onstop = () => {
+        // Do nothing - recording was cancelled
+      }
+      
+      // Stop the recorder without processing the audio
+      mediaRecorderRef.current.stop()
+    }
+    
+    // Stop the media stream first to trigger useAudioLevel cleanup
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    
+    // Reset state
+    setIsRecording(false)
+    setIsPaused(false)
+    setTime(0)
+    
+    // Clear the audio chunks to prevent processing
+    audioChunksRef.current = []
+  }
+
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 bg-white p-2 sm:p-3 rounded-full shadow-lg border border-gray-200 max-w-[calc(100vw-2rem)] overflow-hidden">
       {!isRecording && !isTranscribing && !isAnalyzing && (
@@ -214,12 +240,12 @@ export function FloatingRecordingControls({ onRecordingStop }: FloatingRecording
           <Button
             variant="outline"
             size="icon"
-            className="h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 border-primary text-primary hover:bg-primary hover:text-white transition-colors duration-200 bg-transparent"
-            onClick={() => console.log("Flagged moment")}
-            aria-label="Flag key moment"
+            className="h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 border-gray-500 text-gray-500 hover:bg-gray-500 hover:text-white transition-colors duration-200 bg-transparent"
+            onClick={cancelRecording}
+            aria-label="Cancel recording"
             disabled={isTranscribing || isAnalyzing}
           >
-            <Flag className="h-4 w-4 sm:h-6 sm:w-6" />
+            <X className="h-4 w-4 sm:h-6 sm:w-6" />
           </Button>
           {isPaused ? (
             <Button
