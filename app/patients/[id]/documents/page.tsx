@@ -143,22 +143,18 @@ export default function PatientDocumentsPage({ params }: PatientDocumentsPagePro
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div>
                 <p className="text-gray-500 mb-1">Diagnosis</p>
                 <p className="font-medium">{patient.primary_diagnosis}</p>
-              </div>
-              <div>
-                <p className="text-gray-500 mb-1">Location</p>
-                <p className="font-medium">{patient.current_location}</p>
               </div>
               <div>
                 <p className="text-gray-500 mb-1">Attending</p>
                 <p className="font-medium">Dr. {patient.attending_physician}</p>
               </div>
               <div>
-                <p className="text-gray-500 mb-1">Age/Sex</p>
-                <p className="font-medium">{patient.age}y {patient.sex}</p>
+                <p className="text-gray-500 mb-1">Age</p>
+                <p className="font-medium">{patient.age}y</p>
               </div>
             </div>
           </CardContent>
