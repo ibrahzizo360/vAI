@@ -42,7 +42,7 @@ export class GroqAIService {
 
   async chatCompletion(
     messages: GroqMessage[], 
-    model = 'mixtral-8x7b-32768', // Groq's powerful model for analysis
+    model = 'llama3-70b-8192', // Groq's most capable model for analysis
     options?: {
       temperature?: number
       max_tokens?: number
@@ -91,16 +91,15 @@ export class GroqAIService {
     }
   }
 
-  // Available Groq models for different use cases
+  // Available Groq models for different use cases (current as of 2024)
   static readonly MODELS = {
-    // Fast and efficient for most tasks
-    MIXTRAL_8X7B: 'mixtral-8x7b-32768',
-    // Very fast for simple analysis
-    LLAMA2_70B: 'llama2-70b-4096',
+    // Latest and most capable models
+    LLAMA3_70B: 'llama3-70b-8192',        // Most capable for complex analysis
+    LLAMA3_8B: 'llama3-8b-8192',          // Fast and efficient
     // Gemma models
-    GEMMA_7B: 'gemma-7b-it',
-    // Latest models
-    LLAMA3_8B: 'llama3-8b-8192',
-    LLAMA3_70B: 'llama3-70b-8192'
+    GEMMA_7B: 'gemma-7b-it',              // Google's Gemma model
+    GEMMA2_9B: 'gemma2-9b-it',            // Newer Gemma version
+    // Mixtral (if still available)
+    MIXTRAL_8X22B: 'mixtral-8x22b-32768', // Newer Mixtral if available
   } as const
 }

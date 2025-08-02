@@ -154,7 +154,7 @@ TRANSCRIPT TO ANALYZE:
           role: 'user',
           content: fullPrompt
         }
-      ], GroqAIService.MODELS.MIXTRAL_8X7B, { // Use Mixtral for medical analysis
+      ], GroqAIService.MODELS.LLAMA3_70B, { // Use Llama3-70B for medical analysis
         temperature: 0.1, // Low temperature for consistent medical analysis
         max_tokens: 4000
       })
