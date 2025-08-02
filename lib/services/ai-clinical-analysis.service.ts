@@ -142,31 +142,45 @@ TRANSCRIPT TO ANALYZE:
 
   static async analyzeTranscript(transcript: string): Promise<AIAnalysisResponse> {
     try {
-      // Import LiteLLM service dynamically to avoid circular dependency
-      const { LiteLLMService } = await import('./litellm.service')
+      // Use Groq directly for AI analysis (available with GROQ_API_KEY)
+      const { GroqAIService } = await import('./groq-ai.service')
       
-      const litellmService = new LiteLLMService()
+      const groqService = new GroqAIService()
       
       const fullPrompt = `${this.ANALYSIS_PROMPT}\n\n${transcript}`
       
-      const response = await litellmService.chatCompletion([
+      const response = await groqService.chatCompletion([
         {
           role: 'user',
           content: fullPrompt
         }
-      ], {
-        model: 'openai/gpt-4o', // Use GPT-4o for medical analysis (available in your LiteLLM)
+      ], GroqAIService.MODELS.MIXTRAL_8X7B, { // Use Mixtral for medical analysis
         temperature: 0.1, // Low temperature for consistent medical analysis
         max_tokens: 4000
       })
 
-      // Parse JSON from AI response
+      // Parse JSON from AI response - try multiple parsing strategies
+      let analysisResult: any
+      
+      // First try: Look for JSON block
       const jsonMatch = response.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        throw new Error('Invalid JSON response from AI')
+      if (jsonMatch) {
+        try {
+          analysisResult = JSON.parse(jsonMatch[0])
+        } catch (parseError) {
+          console.warn('Failed to parse extracted JSON, trying full response')
+        }
       }
-
-      const analysisResult = JSON.parse(jsonMatch[0])
+      
+      // Second try: Parse entire response if it's valid JSON
+      if (!analysisResult) {
+        try {
+          analysisResult = JSON.parse(response.trim())
+        } catch (parseError) {
+          console.error('Failed to parse AI response as JSON:', response.substring(0, 200))
+          throw new Error('Invalid JSON response from AI')
+        }
+      }
       return this.validateAndCleanResponse(analysisResult)
     } catch (error) {
       console.error('AI Clinical Analysis failed:', error)
