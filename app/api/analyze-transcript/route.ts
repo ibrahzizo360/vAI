@@ -8,7 +8,13 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB()
     
-    const { transcript } = await request.json()
+    const { 
+      transcript, 
+      metadata, 
+      patient_info, 
+      save_to_db, 
+      session_info 
+    } = await request.json()
     
     if (!transcript) {
       return NextResponse.json(
@@ -37,9 +43,32 @@ export async function POST(request: NextRequest) {
       console.warn('AI enhancement failed, using structured analysis only:', error)
     }
 
+    let databaseInfo = null
+
+    // Save to database if requested
+    if (save_to_db) {
+      try {
+        databaseInfo = await saveToDatabase(
+          transcript, 
+          clinicalAnalysis, 
+          patient_info, 
+          metadata, 
+          session_info,
+          aiEnhancement
+        )
+      } catch (dbError) {
+        console.error('Database save failed:', dbError)
+        databaseInfo = {
+          error: 'Failed to save to database',
+          details: dbError instanceof Error ? dbError.message : 'Unknown database error'
+        }
+      }
+    }
+
     const response = {
       clinical_documentation: clinicalAnalysis,
       ai_enhancement: aiEnhancement,
+      database_info: databaseInfo,
       generation_metadata: {
         generated_at: new Date().toISOString(),
         transcript_length: transcript.length,
@@ -148,6 +177,155 @@ Focus on neurosurgical aspects and provide enhancement suggestions in JSON forma
   }
 
   return null
+}
+
+// Database save function
+async function saveToDatabase(
+  transcript: string, 
+  clinicalAnalysis: any, 
+  patient_info: any, 
+  metadata: any, 
+  session_info: any,
+  aiEnhancement: any
+) {
+  const result: any = {
+    patient_found: false,
+    patient_created: false,
+    note_saved: false,
+    patient_id: null,
+    note_id: null
+  }
+
+  try {
+    let patient = null
+
+    // Find or create patient
+    if (patient_info?.mrn) {
+      patient = await Patient.findOne({ mrn: patient_info.mrn })
+      if (patient) {
+        result.patient_found = true
+        result.patient_id = patient._id
+      }
+    }
+
+    // If no patient found and we have patient info from AI analysis, create new patient
+    if (!patient) {
+      const aiPatientInfo = clinicalAnalysis.patient_info || {}
+      const structuredNote = clinicalAnalysis.structured_note || {}
+      
+      // Generate MRN if not provided
+      const mrn = patient_info?.mrn || await generateUniqueMRN()
+      
+      // Extract patient data from AI analysis or defaults
+      const patientData = {
+        mrn,
+        name: aiPatientInfo.name || structuredNote.patient?.name || 'Unknown Patient',
+        dob: new Date(Date.now() - (25 * 365 * 24 * 60 * 60 * 1000)), // Default to 25 years old
+        age: aiPatientInfo.age || structuredNote.patient?.age || 25,
+        sex: aiPatientInfo.gender || structuredNote.patient?.sex || 'Other',
+        primary_diagnosis: extractPrimaryDiagnosis(transcript),
+        secondary_diagnoses: clinicalAnalysis.key_findings?.diagnoses || [],
+        admission_date: new Date(),
+        admission_source: 'Transfer' as const,
+        gcs_admission: extractGCS(transcript) || 15,
+        current_location: 'Neurosurgery Ward',
+        attending_physician: 'Attending Physician',
+        status: 'Active' as const,
+        monitoring: {
+          icp_monitor: transcript.toLowerCase().includes('icp'),
+          evd: transcript.toLowerCase().includes('evd'),
+          ventilator: transcript.toLowerCase().includes('ventilator'),
+          other_devices: []
+        },
+        emergency_contacts: [],
+        past_medical_history: [],
+        allergies: [],
+        medications: []
+      }
+
+      patient = new Patient(patientData)
+      await patient.save()
+      
+      result.patient_created = true
+      result.patient_id = patient._id
+    }
+
+    // Create clinical note
+    const encounterInfo = clinicalAnalysis.encounter_info || {}
+    const structuredNote = clinicalAnalysis.structured_note || {}
+    const sections = structuredNote.sections || {}
+
+    const clinicalNoteData = {
+      patient_id: patient._id,
+      encounter_date: session_info?.date ? new Date(session_info.date) : new Date(),
+      encounter_time: session_info?.time || new Date().toTimeString().split(' ')[0].substring(0, 5),
+      encounter_type: encounterInfo.type || 'rounds',
+      encounter_location: encounterInfo.location || 'Clinical setting',
+      duration_minutes: encounterInfo.duration_minutes || null,
+      
+      template_id: structuredNote.template_id || 'progress_note',
+      template_name: structuredNote.template_name || 'Progress Note',
+      note_sections: new Map(Object.entries(sections)),
+      
+      raw_transcript: transcript,
+      
+      audio_metadata: {
+        original_filename: metadata?.original_filename || null,
+        duration_seconds: metadata?.duration_seconds || null,
+        file_size_bytes: metadata?.file_size_bytes || null,
+        transcription_provider: 'groq',
+        transcription_confidence: clinicalAnalysis.confidence || 0.8,
+        speaker_count: metadata?.speaker_count || 1
+      },
+      
+      ai_analysis_metadata: {
+        model_used: 'groq/llama3-70b-8192',
+        analysis_confidence: clinicalAnalysis.confidence || 0.8,
+        analysis_timestamp: new Date(),
+        enhancement_applied: !!aiEnhancement
+      },
+      
+      extracted_content: {
+        symptoms: clinicalAnalysis.key_findings?.symptoms || [],
+        vital_signs: extractVitalSigns(transcript),
+        medications_mentioned: clinicalAnalysis.key_findings?.medications || [],
+        procedures_mentioned: clinicalAnalysis.key_findings?.procedures || [],
+        diagnoses_mentioned: clinicalAnalysis.key_findings?.diagnoses || [],
+        follow_up_items: (clinicalAnalysis.follow_up_items || []).map((item: any) => ({
+          item: item.item || item,
+          priority: item.priority || 'medium',
+          due_date: item.due_date ? new Date(item.due_date) : undefined,
+          assigned_to: item.assigned_to || undefined
+        }))
+      },
+      
+      primary_provider: 'Primary Provider',
+      attending_physician: patient.attending_physician,
+      other_providers: encounterInfo.providers || [],
+      family_present: [],
+      
+      status: 'draft',
+      tags: generateTags(transcript, patient),
+      urgency: determineUrgency(transcript),
+      
+      completeness_score: 0, // Will be calculated by pre-save middleware
+      requires_followup: false, // Will be calculated by pre-save middleware
+      
+      exported_formats: []
+    }
+
+    const clinicalNote = new ClinicalNote(clinicalNoteData)
+    await clinicalNote.save()
+    
+    result.note_saved = true
+    result.note_id = clinicalNote._id
+
+    return result
+
+  } catch (error) {
+    console.error('Database save error:', error)
+    throw error
+  }
 }
 
 // Utility functions

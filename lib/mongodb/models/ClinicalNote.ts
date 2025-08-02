@@ -18,7 +18,8 @@ export interface IClinicalNote extends Document {
     [sectionId: string]: string
   }
   
-  // Audio/transcription metadata
+  // Raw transcript and audio metadata  
+  raw_transcript?: string
   audio_metadata?: {
     original_filename?: string
     duration_seconds?: number
@@ -26,6 +27,14 @@ export interface IClinicalNote extends Document {
     transcription_provider: 'groq' | 'assemblyai' | 'litellm'
     transcription_confidence?: number
     speaker_count?: number
+  }
+  
+  // AI analysis metadata
+  ai_analysis_metadata?: {
+    model_used?: string
+    analysis_confidence?: number
+    analysis_timestamp?: Date
+    enhancement_applied?: boolean
   }
   
   // Clinical content extraction
@@ -136,6 +145,8 @@ const ClinicalNoteSchema = new Schema<IClinicalNote>({
     required: true 
   },
   
+  raw_transcript: String,
+  
   audio_metadata: {
     original_filename: String,
     duration_seconds: Number,
@@ -146,6 +157,13 @@ const ClinicalNoteSchema = new Schema<IClinicalNote>({
     },
     transcription_confidence: Number,
     speaker_count: Number
+  },
+  
+  ai_analysis_metadata: {
+    model_used: String,
+    analysis_confidence: Number,
+    analysis_timestamp: Date,
+    enhancement_applied: Boolean
   },
   
   extracted_content: {

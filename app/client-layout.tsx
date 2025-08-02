@@ -5,6 +5,7 @@ import { Montserrat } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { FloatingRecordingControls } from "@/components/custom/floating-recording-controls"
 import { TranscriptReviewModal } from "@/components/custom/transcript-review-modal"
+import { Toaster } from "sonner"
 import { useState, useEffect } from "react"
 
 interface TranscriptionData {
@@ -75,6 +76,7 @@ export default function ClientLayout({
         onClose={() => setShowReviewModal(false)}
         transcriptData={currentTranscriptData}
       />
+      <Toaster position="top-right" />
     </ThemeProvider>
   )
 }

@@ -132,7 +132,7 @@ export function AnalysisDebugger() {
         </Card>
       )}
 
-      {/* Results Section */}
+    {/* Results Section */}
       {result && (
         <Card>
           <CardHeader>
