@@ -1,4 +1,5 @@
 import { MedicalNoteTemplate, GeneratedMedicalNote, PatientInfo, EncounterInfo, MedicalNoteTemplateService } from '../templates/medical-note-templates'
+import { AIClinicalAnalysisService } from './ai-clinical-analysis.service'
 
 export interface ClinicalAnalysisResult {
   suggested_template: string
@@ -36,7 +37,34 @@ export class ClinicalDocumentationService {
     transcript: string,
   ): Promise<ClinicalAnalysisResult> {
     
-    // Analyze transcript to determine appropriate template
+    try {
+      // Use AI analysis for much more accurate medical extraction
+      console.log('🤖 Using AI analysis for clinical documentation...')
+      const aiAnalysis = await AIClinicalAnalysisService.analyzeTranscript(transcript)
+      
+      // Determine appropriate template based on AI analysis
+      const templateId = this.mapEncounterTypeToTemplate(aiAnalysis.encounter_type)
+      const template = MedicalNoteTemplateService.getTemplateById(templateId)
+      
+      if (!template) {
+        throw new Error('Could not determine appropriate medical note template')
+      }
+
+      // Convert AI response to our expected format
+      return AIClinicalAnalysisService.convertToClinicalAnalysisResult(aiAnalysis, templateId)
+      
+    } catch (error) {
+      console.error('❌ AI analysis failed, falling back to keyword matching:', error)
+      
+      // Fallback to original keyword-based analysis
+      return this.fallbackToKeywordAnalysis(transcript)
+    }
+  }
+
+  private static async fallbackToKeywordAnalysis(transcript: string): Promise<ClinicalAnalysisResult> {
+    console.log('📝 Using fallback keyword analysis...')
+    
+    // Original implementation as fallback
     const templateAnalysis = this.analyzeTemplateNeeds(transcript)
     const template = MedicalNoteTemplateService.getTemplateById(templateAnalysis.templateId)
     
@@ -74,7 +102,19 @@ export class ClinicalDocumentationService {
     }
   }
 
-  private static analyzeTemplateNeeds(transcript: string, encounterType?: string): {
+  private static mapEncounterTypeToTemplate(encounterType: string): string {
+    const mapping: { [key: string]: string } = {
+      'rounds': 'neuro_rounds',
+      'consult': 'neuro_consult', 
+      'family_meeting': 'family_meeting',
+      'procedure': 'neuro_procedure',
+      'discharge': 'discharge_summary'
+    }
+    
+    return mapping[encounterType] || 'neuro_consult'
+  }
+
+  private static analyzeTemplateNeeds(transcript: string): {
     templateId: string,
     encounterType: string,
     confidence: number
@@ -123,10 +163,6 @@ export class ClinicalDocumentationService {
       return { templateId: 'neuro_rounds', encounterType: 'rounds', confidence: 0.7 + (neuroScore * 0.03) }
     }
     
-    if (encounterType === 'rounds' || roundScore >= 2) {
-      return { templateId: 'progress_note', encounterType: 'rounds', confidence: 0.6 }
-    }
-
     // Better default - if we have consultation indicators, default to consult
     if (consultScore >= 1) {
       return { templateId: 'neuro_consult', encounterType: 'consult', confidence: 0.6 }

@@ -1,5 +1,16 @@
 import { TranscriptionService, TranscriptionResult, TranscriptionConfig, TranscriptionError } from '../types/transcription'
 
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+
+interface ChatCompletionConfig {
+  model?: string
+  temperature?: number
+  max_tokens?: number
+}
+
 export class LiteLLMService implements TranscriptionService {
   private readonly apiKey: string
   private readonly baseUrl: string
@@ -70,6 +81,48 @@ export class LiteLLMService implements TranscriptionService {
         500,
         'LiteLLM'
       )
+    }
+  }
+
+  // Add chat completion method for AI analysis
+  async chatCompletion(messages: ChatMessage[], config?: ChatCompletionConfig): Promise<string> {
+    try {
+      console.log('Making LiteLLM chat completion call...')
+
+      const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: config?.model || 'claude-3-sonnet-20240229',
+          messages,
+          temperature: config?.temperature || 0.1,
+          max_tokens: config?.max_tokens || 4000,
+        }),
+      })
+
+      console.log('LiteLLM chat completion response status:', response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('LiteLLM chat completion error:', errorText)
+        throw new Error(`LiteLLM API error: ${response.status} - ${errorText}`)
+      }
+
+      const data = await response.json()
+      console.log('LiteLLM chat completion response received')
+
+      const content = data.choices?.[0]?.message?.content
+      if (!content) {
+        throw new Error('No content in LiteLLM response')
+      }
+
+      return content
+    } catch (error) {
+      console.error('LiteLLM chat completion failed:', error)
+      throw new Error(`LiteLLM chat completion failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 }
