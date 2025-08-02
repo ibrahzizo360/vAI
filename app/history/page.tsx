@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tag, Download, FileText, Calendar, Search, Filter, Loader2, Users } from "lucide-react"
+import { Tag, Download, FileText, Calendar, Search, Filter, Loader2, Users, RefreshCw } from "lucide-react"
 import { Sidebar } from "@/components/custom/sidebar"
+import { ExportModal } from "@/components/custom/export-modal"
 import { fetchWithoutCache } from "@/lib/utils/cache"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { toast } from "sonner"
 
 const TRANSCRIPTS_PER_PAGE = 12
 
@@ -22,9 +26,21 @@ interface ClinicalNote {
   status: string
   primary_provider: string
   attending_physician: string
+  raw_transcript?: string
+  audio_metadata?: {
+    duration_seconds?: number
+    transcription_provider?: string
+    transcription_confidence?: number
+  }
+  ai_analysis_metadata?: {
+    analysis_confidence?: number
+    model_used?: string
+  }
   extracted_content: {
     symptoms: string[]
     diagnoses_mentioned: string[]
+    medications_mentioned?: string[]
+    procedures_mentioned?: string[]
   }
   completeness_score: number
 }
@@ -49,12 +65,16 @@ interface ClinicalNotesResponse {
 export default function HistoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [dateFilter, setDateFilter] = useState("")
+  const [dateEndFilter, setDateEndFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
   const [visibleTranscriptsCount, setVisibleTranscriptsCount] = useState(TRANSCRIPTS_PER_PAGE)
   const [allTranscripts, setAllTranscripts] = useState<(ClinicalNote & { patient: Patient })[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedNotes, setSelectedNotes] = useState<string[]>([])
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportingNotes, setExportingNotes] = useState<(ClinicalNote & { patient: Patient })[]>([])
 
   useEffect(() => {
     fetchClinicalNotes()
@@ -79,9 +99,20 @@ export default function HistoryPage() {
   const filteredTranscripts = allTranscripts.filter(transcript => {
     const matchesSearch = transcript.patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          transcript.patient.mrn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transcript.patient.primary_diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesDate = !dateFilter || transcript.encounter_date.startsWith(dateFilter)
-    const matchesType = typeFilter === "all" || transcript.encounter_type.toLowerCase().replace(/\s+/g, '-') === typeFilter
+                         transcript.patient.primary_diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (transcript.raw_transcript && transcript.raw_transcript.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         transcript.extracted_content.symptoms.some(symptom => symptom.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         transcript.extracted_content.diagnoses_mentioned.some(diagnosis => diagnosis.toLowerCase().includes(searchTerm.toLowerCase()))
+    
+    let matchesDate = true
+    if (dateFilter) {
+      const noteDate = new Date(transcript.encounter_date)
+      const startDate = new Date(dateFilter)
+      const endDate = dateEndFilter ? new Date(dateEndFilter) : startDate
+      matchesDate = noteDate >= startDate && noteDate <= endDate
+    }
+    
+    const matchesType = typeFilter === "all" || transcript.encounter_type === typeFilter
     return matchesSearch && matchesDate && matchesType
   })
 
@@ -114,18 +145,63 @@ export default function HistoryPage() {
   }
 
   const generateSummary = (note: ClinicalNote & { patient: Patient }) => {
-    const symptoms = note.extracted_content.symptoms.join(', ')
-    const diagnoses = note.extracted_content.diagnoses_mentioned.join(', ')
-    
     if (note.note_sections.assessment_plan) {
       return note.note_sections.assessment_plan.substring(0, 150) + '...'
     } else if (note.note_sections.subjective) {
       return note.note_sections.subjective.substring(0, 150) + '...'
-    } else if (symptoms) {
-      return `Symptoms: ${symptoms}. Diagnoses: ${diagnoses}.`
+    } else if (note.raw_transcript) {
+      return note.raw_transcript.substring(0, 150) + '...'
+    }
+    
+    const symptoms = note.extracted_content.symptoms.join(', ')
+    const diagnoses = note.extracted_content.diagnoses_mentioned.join(', ')
+    if (symptoms) {
+      return `Symptoms: ${symptoms}. Diagnoses: ${diagnoses}.`.substring(0, 150) + '...'
     }
     
     return `${formatEncounterType(note.encounter_type)} for ${note.patient.primary_diagnosis}`
+  }
+
+  const handleSelectNote = (noteId: string) => {
+    setSelectedNotes(prev => 
+      prev.includes(noteId) 
+        ? prev.filter(id => id !== noteId)
+        : [...prev, noteId]
+    )
+  }
+
+  const handleSelectAll = () => {
+    if (selectedNotes.length === filteredTranscripts.length) {
+      setSelectedNotes([])
+    } else {
+      setSelectedNotes(filteredTranscripts.map(note => note._id))
+    }
+  }
+
+  const handleSingleExport = (note: ClinicalNote & { patient: Patient }) => {
+    setExportingNotes([note])
+    setShowExportModal(true)
+  }
+
+  const handleBulkExport = () => {
+    const notesToExport = filteredTranscripts.filter(note => selectedNotes.includes(note._id))
+    setExportingNotes(notesToExport)
+    setShowExportModal(true)
+  }
+
+  const clearFilters = () => {
+    setSearchTerm("")
+    setDateFilter("")
+    setDateEndFilter("")
+    setTypeFilter("all")
+    toast.success("Filters cleared")
+  }
+
+  const refreshData = async () => {
+    toast.loading("Refreshing data...")
+    await fetchClinicalNotes()
+    toast.dismiss()
+    toast.success("Data refreshed")
   }
 
   return (
@@ -133,8 +209,23 @@ export default function HistoryPage() {
       <Sidebar />
       <div className="flex-1 md:ml-20 flex flex-col">
         <header className="flex items-center justify-between p-4 bg-primary text-white shadow-md sticky top-0 z-10">
-          <h1 className="text-xl font-bold ml-12 md:ml-0">Transcript History</h1>
-          <span className="text-sm opacity-90">{filteredTranscripts.length} transcripts</span>
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold ml-12 md:ml-0">Transcript History</h1>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshData}
+              className="text-white hover:bg-white/10"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-4 text-sm opacity-90">
+            {selectedNotes.length > 0 && (
+              <span>{selectedNotes.length} selected</span>
+            )}
+            <span>{filteredTranscripts.length} notes</span>
+          </div>
         </header>
 
         <main className="flex-1 p-4 pb-28">
@@ -148,11 +239,11 @@ export default function HistoryPage() {
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="relative flex-1">
                 <Input
-                  placeholder="Search Patient ID"
+                  placeholder="Search by patient name, MRN, diagnosis, or transcript content..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-3 border rounded-lg focus:ring-primary focus:border-primary"
-                  aria-label="Search transcripts"
+                  aria-label="Search clinical notes"
                 />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               </div>
@@ -165,55 +256,107 @@ export default function HistoryPage() {
                   <Filter className="h-4 w-4 mr-2" />
                   Filters
                 </Button>
-                <Button
-                  className="bg-primary text-white px-4 py-3 rounded-lg hover:bg-primary/90 whitespace-nowrap"
-                  aria-label="Export transcripts"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
+                {selectedNotes.length > 0 && (
+                  <Button
+                    onClick={handleBulkExport}
+                    className="bg-primary text-white px-4 py-3 rounded-lg hover:bg-primary/90 whitespace-nowrap"
+                    aria-label="Export selected notes"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export ({selectedNotes.length})
+                  </Button>
+                )}
               </div>
             </div>
+
+            {/* Bulk Actions Bar */}
+            {selectedNotes.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    checked={selectedNotes.length === filteredTranscripts.length}
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <span className="text-sm font-medium">
+                    {selectedNotes.length} of {filteredTranscripts.length} notes selected
+                  </span>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button size="sm" variant="outline" onClick={() => setSelectedNotes([])} className="flex-1 sm:flex-none">
+                    Clear
+                  </Button>
+                  <Button size="sm" onClick={handleBulkExport} className="flex-1 sm:flex-none">
+                    <Download className="h-4 w-4 mr-1" />
+                    Export ({selectedNotes.length})
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Expanded Filters */}
             {showFilters && (
               <Card className="bg-white shadow-sm border border-gray-200 mb-6">
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="relative">
-                      <Input 
-                        type="date" 
-                        value={dateFilter}
-                        onChange={(e) => setDateFilter(e.target.value)}
-                        className="pl-10 pr-4 py-2 w-full" 
-                        aria-label="Filter by date" 
-                      />
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Start Date</label>
+                      <div className="relative">
+                        <Input 
+                          type="date" 
+                          value={dateFilter}
+                          onChange={(e) => setDateFilter(e.target.value)}
+                          className="pl-10 pr-4 py-2 w-full" 
+                          aria-label="Filter start date" 
+                        />
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      </div>
                     </div>
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Filter by Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="ward-round">Ward Round</SelectItem>
-                        <SelectItem value="consult">Consult</SelectItem>
-                        <SelectItem value="family-meeting">Family Meeting</SelectItem>
-                        <SelectItem value="surgery-prep">Surgery Prep</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">End Date</label>
+                      <div className="relative">
+                        <Input 
+                          type="date" 
+                          value={dateEndFilter}
+                          onChange={(e) => setDateEndFilter(e.target.value)}
+                          className="pl-10 pr-4 py-2 w-full" 
+                          aria-label="Filter end date" 
+                        />
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Encounter Type</label>
+                      <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Filter by Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Types</SelectItem>
+                          <SelectItem value="rounds">Ward Round</SelectItem>
+                          <SelectItem value="consult">Consult</SelectItem>
+                          <SelectItem value="family_meeting">Family Meeting</SelectItem>
+                          <SelectItem value="procedure">Procedure</SelectItem>
+                          <SelectItem value="discharge">Discharge</SelectItem>
+                          <SelectItem value="emergency">Emergency</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="flex justify-end mt-4">
+                  <div className="flex justify-between items-center mt-4">
+                    <div className="text-sm text-gray-600">
+                      {dateFilter && (
+                        <span>
+                          Showing notes from {new Date(dateFilter).toLocaleDateString()}
+                          {dateEndFilter && ` to ${new Date(dateEndFilter).toLocaleDateString()}`}
+                        </span>
+                      )}
+                    </div>
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        setSearchTerm("")
-                        setDateFilter("")
-                        setTypeFilter("all")
-                      }}
+                      onClick={clearFilters}
                       className="text-sm"
                     >
-                      Clear Filters
+                      Clear All Filters
                     </Button>
                   </div>
                 </CardContent>
@@ -243,40 +386,110 @@ export default function HistoryPage() {
             {!loading && !error && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredTranscripts.slice(0, visibleTranscriptsCount).map((transcript) => (
-                  <Card key={transcript._id} className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                  <Card key={transcript._id} className={`bg-white border shadow-sm hover:shadow-md transition-shadow ${
+                    selectedNotes.includes(transcript._id) ? 'border-primary bg-primary/5' : 'border-gray-200'
+                  }`}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-primary text-base truncate">{transcript.patient.name}</h4>
-                          <p className="text-xs text-gray-600 mt-1">{transcript.patient.mrn}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {new Date(transcript.encounter_date).toLocaleDateString()}
-                          </p>
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <Checkbox
+                            checked={selectedNotes.includes(transcript._id)}
+                            onCheckedChange={() => handleSelectNote(transcript._id)}
+                            className="mt-1 flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-primary text-sm sm:text-base truncate">{transcript.patient.name}</h4>
+                            <p className="text-xs text-gray-600 mt-1">{transcript.patient.mrn}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(transcript.encounter_date).toLocaleDateString()}
+                              {transcript.audio_metadata?.duration_seconds && (
+                                <span className="ml-2 hidden sm:inline">
+                                  • {Math.floor(transcript.audio_metadata.duration_seconds / 60)}:{String(transcript.audio_metadata.duration_seconds % 60).padStart(2, '0')}
+                                </span>
+                              )}
+                            </p>
+                            {/* Show duration on mobile as a separate line */}
+                            {transcript.audio_metadata?.duration_seconds && (
+                              <p className="text-xs text-gray-500 mt-1 sm:hidden">
+                                Duration: {Math.floor(transcript.audio_metadata.duration_seconds / 60)}:{String(transcript.audio_metadata.duration_seconds % 60).padStart(2, '0')}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getContextColor(transcript.encounter_type)}`}>
+                        <div className="flex flex-col gap-1 flex-shrink-0">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getContextColor(transcript.encounter_type)}`}>
                             {formatEncounterType(transcript.encounter_type)}
                           </span>
-                          <span className="text-xs text-gray-500 text-center">
-                            {transcript.completeness_score}% complete
-                          </span>
+                          <div className="text-xs text-gray-500 text-center">
+                            {transcript.completeness_score}% done
+                            {transcript.ai_analysis_metadata?.analysis_confidence && (
+                              <div className="text-xs text-blue-600 mt-1">
+                                AI: {Math.round(transcript.ai_analysis_metadata.analysis_confidence * 100)}%
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Clinical Findings */}
+                      {(transcript.extracted_content.symptoms.length > 0 || transcript.extracted_content.diagnoses_mentioned.length > 0) && (
+                        <div className="mb-3">
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {transcript.extracted_content.symptoms.slice(0, 2).map((symptom, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs">
+                                {symptom}
+                              </Badge>
+                            ))}
+                            {transcript.extracted_content.diagnoses_mentioned.slice(0, 2).map((diagnosis, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {diagnosis}
+                              </Badge>
+                            ))}
+                            {(transcript.extracted_content.symptoms.length + transcript.extracted_content.diagnoses_mentioned.length) > 4 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{(transcript.extracted_content.symptoms.length + transcript.extracted_content.diagnoses_mentioned.length) - 4} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="mb-3">
                         <p className="text-xs text-gray-600 mb-1">
                           {transcript.encounter_location} • {transcript.attending_physician}
                         </p>
+                        {transcript.audio_metadata?.transcription_provider && (
+                          <p className="text-xs text-gray-500">
+                            Transcribed by {transcript.audio_metadata.transcription_provider}
+                            {transcript.audio_metadata.transcription_confidence && 
+                              ` (${Math.round(transcript.audio_metadata.transcription_confidence * 100)}% confidence)`
+                            }
+                          </p>
+                        )}
                       </div>
+                      
                       <p className="text-sm text-gray-700 line-clamp-2 mb-3">{generateSummary(transcript)}</p>
-                      <Link href={`/patients/${transcript.patient._id}`} passHref>
+                      
+                      <div className="flex justify-between items-center">
+                        <Link href={`/patients/${transcript.patient._id}`} passHref>
+                          <Button
+                            variant="link"
+                            className="p-0 h-auto text-primary hover:underline text-sm font-medium"
+                            aria-label={`View case for ${transcript.patient.name}`}
+                          >
+                            View Patient <FileText className="h-3 w-3 ml-1" />
+                          </Button>
+                        </Link>
                         <Button
-                          variant="link"
-                          className="p-0 h-auto text-primary hover:underline text-sm font-medium w-full justify-start"
-                          aria-label={`View case for ${transcript.patient.name}`}
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSingleExport(transcript)}
+                          className="text-xs"
                         >
-                          View Patient <FileText className="h-3 w-3 ml-1" />
+                          <Download className="h-3 w-3 mr-1" />
+                          Export
                         </Button>
-                      </Link>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -315,16 +528,20 @@ export default function HistoryPage() {
               </div>
             )}
 
-            {/* Bulk Export */}
-            {filteredTranscripts.length > 0 && (
+            {/* Quick Export All */}
+            {filteredTranscripts.length > 0 && selectedNotes.length === 0 && (
               <Card className="bg-white shadow-sm border border-gray-200">
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div>
-                      <h3 className="font-medium text-primary">Bulk Export</h3>
-                      <p className="text-sm text-gray-600">Export all filtered transcripts as ZIP or PDF</p>
+                      <h3 className="font-medium text-primary">Export All Visible</h3>
+                      <p className="text-sm text-gray-600">Export all {filteredTranscripts.length} filtered clinical notes</p>
                     </div>
                     <Button
+                      onClick={() => {
+                        setExportingNotes(filteredTranscripts)
+                        setShowExportModal(true)
+                      }}
                       className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90"
                       aria-label="Export all filtered transcripts"
                     >
@@ -338,6 +555,17 @@ export default function HistoryPage() {
           </div>
         </main>
       </div>
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => {
+          setShowExportModal(false)
+          setExportingNotes([])
+        }}
+        notes={exportingNotes}
+        title={exportingNotes.length === 1 ? "Export Clinical Note" : `Export ${exportingNotes.length} Clinical Notes`}
+      />
     </div>
   )
 }

@@ -200,7 +200,15 @@ async function saveToDatabase(
     let patient = null
 
     // Find or create patient
-    if (patient_info?.mrn) {
+    if (patient_info?.patient_id) {
+      // Selected existing patient by ID
+      patient = await Patient.findById(patient_info.patient_id)
+      if (patient) {
+        result.patient_found = true
+        result.patient_id = patient._id
+      }
+    } else if (patient_info?.mrn) {
+      // Search by MRN (fallback)
       patient = await Patient.findOne({ mrn: patient_info.mrn })
       if (patient) {
         result.patient_found = true

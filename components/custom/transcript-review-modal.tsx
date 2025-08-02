@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -10,14 +10,13 @@ import {
   DialogDescription,
   DialogClose,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MedicalSyntaxHighlighter } from "@/components/custom/medical-syntax-highlighter"
-import { Edit, RefreshCcw, CheckCircle, QrCode, Calendar, Clock, Loader2 } from "lucide-react"
+import { CheckCircle, Calendar, Clock, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import Link from "next/link"
 
 interface TranscriptReviewModalProps {
   isOpen: boolean
@@ -32,8 +31,19 @@ interface TranscriptReviewModalProps {
   }
 }
 
+interface Patient {
+  _id: string
+  mrn: string
+  name: string
+  primary_diagnosis: string
+  current_location: string
+  attending_physician: string
+}
+
 export function TranscriptReviewModal({ isOpen, onClose, transcriptData }: TranscriptReviewModalProps) {
-  const [patientId, setPatientId] = useState(transcriptData.patientId || "")
+  const [selectedPatient, setSelectedPatient] = useState<string>("")
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [loadingPatients, setLoadingPatients] = useState(false)
   const [remarks, setRemarks] = useState(transcriptData.remarks || "")
 
   const sampleTranscript =
@@ -62,6 +72,36 @@ export function TranscriptReviewModal({ isOpen, onClose, transcriptData }: Trans
 
   const [isSaving, setIsSaving] = useState(false)
 
+  // Fetch patients when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchPatients()
+    }
+  }, [isOpen])
+
+  const fetchPatients = async () => {
+    setLoadingPatients(true)
+    try {
+      const response = await fetch('/api/patients?limit=100&status=Active')
+      if (response.ok) {
+        const data = await response.json()
+        setPatients(data.patients || [])
+      } else {
+        console.error('Failed to fetch patients')
+        toast.error('Failed to load patients', {
+          description: 'Unable to fetch patient list. You can still save without selecting a patient.'
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching patients:', error)
+      toast.error('Error loading patients', {
+        description: 'Connection error. You can still save without selecting a patient.'
+      })
+    } finally {
+      setLoadingPatients(false)
+    }
+  }
+
   const handleSaveToRegistry = async () => {
     setIsSaving(true)
     const loadingToast = toast.loading('Saving to registry...', {
@@ -81,8 +121,12 @@ export function TranscriptReviewModal({ isOpen, onClose, transcriptData }: Trans
             recorded_at: new Date().toISOString(),
             additional_notes: remarks || undefined
           },
-          patient_info: {
-            mrn: patientId || undefined,
+          patient_info: selectedPatient ? {
+            patient_id: selectedPatient,
+            mrn: patients.find(p => p._id === selectedPatient)?.mrn,
+            name: patients.find(p => p._id === selectedPatient)?.name
+          } : {
+            mrn: undefined,
             name: undefined // Will be extracted from transcript if available
           },
           save_to_db: true,
@@ -388,21 +432,46 @@ export function TranscriptReviewModal({ isOpen, onClose, transcriptData }: Trans
             <h3 className="text-lg sm:text-xl font-semibold text-primary mb-3">Add Context</h3>
             
             <div>
-              <label htmlFor="patient-id" className="block text-sm font-medium text-gray-700 mb-2">
-                Patient ID
+              <label htmlFor="patient-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Select Patient
               </label>
-              <div className="relative">
-                <Input
-                  id="patient-id"
-                  placeholder="Enter Patient ID (optional)"
-                  className="pl-10 pr-4 py-2 border rounded-md focus:ring-primary focus:border-primary text-sm"
-                  aria-label="Patient ID"
-                  value={patientId}
-                  onChange={(e) => setPatientId(e.target.value)}
-                />
-                <QrCode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Can be added later if not available now</p>
+              <Select value={selectedPatient} onValueChange={setSelectedPatient}>
+                <SelectTrigger 
+                  id="patient-select"
+                  className="w-full border rounded-md focus:ring-primary focus:border-primary text-sm"
+                  disabled={loadingPatients}
+                >
+                  <SelectValue placeholder={
+                    loadingPatients ? "Loading patients..." : 
+                    patients.length === 0 ? "No patients found" :
+                    "Select a patient (optional)"
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.length > 0 ? (
+                    patients.map((patient) => (
+                      <SelectItem key={patient._id} value={patient._id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{patient.name}</span>
+                          <span className="text-xs text-gray-500">
+                            {patient.mrn} • {patient.primary_diagnosis}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>
+                      {loadingPatients ? "Loading..." : "No active patients found"}
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                {patients.length > 0 
+                  ? "Select an existing patient or leave blank to create new patient from transcript" 
+                  : "No existing patients found. A new patient will be created from the transcript."
+                }
+              </p>
             </div>
 
             <div>
