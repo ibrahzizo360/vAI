@@ -155,7 +155,7 @@ TRANSCRIPT TO ANALYZE:
           content: fullPrompt
         }
       ], {
-        model: 'claude-3-sonnet-20240229', // Use Claude for medical analysis
+        model: 'openai/gpt-4o', // Use GPT-4o for medical analysis (available in your LiteLLM)
         temperature: 0.1, // Low temperature for consistent medical analysis
         max_tokens: 4000
       })

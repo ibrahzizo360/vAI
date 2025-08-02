@@ -96,7 +96,7 @@ export class LiteLLMService implements TranscriptionService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: config?.model || 'claude-3-sonnet-20240229',
+          model: config?.model || 'openai/gpt-4o',
           messages,
           temperature: config?.temperature || 0.1,
           max_tokens: config?.max_tokens || 4000,
