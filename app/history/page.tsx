@@ -365,9 +365,41 @@ export default function HistoryPage() {
 
             {/* Loading State */}
             {loading && (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-2 text-gray-600">Loading clinical notes...</span>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <Card key={i} className="bg-white border border-gray-200 shadow-sm">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start gap-2 flex-1">
+                            <div className="w-4 h-4 bg-gray-200 rounded animate-pulse mt-1"></div>
+                            <div className="flex-1">
+                              <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                              <div className="h-3 bg-gray-200 rounded animate-pulse w-20 mb-1"></div>
+                              <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16"></div>
+                            <div className="h-3 bg-gray-200 rounded animate-pulse w-12"></div>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 mb-3">
+                          <div className="h-5 bg-gray-200 rounded animate-pulse w-16"></div>
+                          <div className="h-5 bg-gray-200 rounded animate-pulse w-20"></div>
+                        </div>
+                        <div className="space-y-2 mb-3">
+                          <div className="h-3 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
+                          <div className="h-6 bg-gray-200 rounded animate-pulse w-16"></div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -470,7 +502,7 @@ export default function HistoryPage() {
                       
                       <p className="text-sm text-gray-700 line-clamp-2 mb-3">{generateSummary(transcript)}</p>
                       
-                      <div className="flex justify-between items-center">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <Link href={`/patients/${transcript.patient._id}`} passHref>
                           <Button
                             variant="link"
@@ -484,7 +516,7 @@ export default function HistoryPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleSingleExport(transcript)}
-                          className="text-xs"
+                          className="text-xs self-end sm:self-auto"
                         >
                           <Download className="h-3 w-3 mr-1" />
                           Export

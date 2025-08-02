@@ -460,7 +460,7 @@ export function TranscriptReviewModal({ isOpen, onClose, transcriptData }: Trans
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="no-patients" disabled>
                       {loadingPatients ? "Loading..." : "No active patients found"}
                     </SelectItem>
                   )}

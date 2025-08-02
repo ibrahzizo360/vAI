@@ -14,7 +14,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     await connectDB()
     
-    const patientId = params.id
+    const { id } = await params
+    const patientId = id
     
     // Find patient by ID
     const patient = await Patient.findById(patientId).lean()
@@ -68,7 +69,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     await connectDB()
     
-    const patientId = params.id
+    const { id } = await params
+    const patientId = id
     const updates = await request.json()
     
     const updatedPatient = await Patient.findByIdAndUpdate(

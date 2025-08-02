@@ -1,120 +1,182 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Sidebar } from "@/components/custom/sidebar"
-import { CaseDetailsSection } from "@/components/custom/case-details-section"
-import { MediaUploadCard } from "@/components/custom/media-upload-card"
-import { AiInsightsCard } from "@/components/custom/ai-insights-card"
-import { FollowUpRemindersCard } from "@/components/custom/follow-up-reminders-card"
-import { ArrowLeft, User, FileText, Upload, Bot, Calendar, Loader2 } from "lucide-react"
-import Link from "next/link"
-import { fetchWithoutCache } from "@/lib/utils/cache"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sidebar } from "@/components/custom/sidebar";
+import { ExportModal } from "@/components/custom/export-modal";
+import { Badge } from "@/components/ui/badge";
+import {
+  ArrowLeft,
+  User,
+  FileText,
+  Bot,
+  Calendar,
+  Loader2,
+  Upload,
+  CircleAlert,
+  Activity,
+  Clock,
+  ExternalLink,
+  Brain,
+  Eye,
+  Zap,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+} from "lucide-react";
+import Link from "next/link";
+import { fetchWithoutCache } from "@/lib/utils/cache";
 
 interface PatientDetailsPageProps {
   params: {
-    id: string
-  }
+    id: string;
+  };
 }
 
 interface Patient {
-  _id: string
-  mrn: string
-  name: string
-  dob: string
-  age: number
-  sex: string
-  primary_diagnosis: string
-  secondary_diagnoses: string[]
-  admission_date: string
-  status: string
-  current_location: string
-  attending_physician: string
-  resident_physician?: string
+  _id: string;
+  mrn: string;
+  name: string;
+  dob: string;
+  age: number;
+  sex: string;
+  primary_diagnosis: string;
+  secondary_diagnoses: string[];
+  admission_date: string;
+  status: string;
+  current_location: string;
+  attending_physician: string;
+  resident_physician?: string;
   procedures: Array<{
-    name: string
-    date: string
-    surgeon: string
-    notes?: string
-  }>
+    name: string;
+    date: string;
+    surgeon: string;
+    notes?: string;
+  }>;
   monitoring: {
-    icp_monitor: boolean
-    evd: boolean
-    ventilator: boolean
-    other_devices: string[]
-  }
+    icp_monitor: boolean;
+    evd: boolean;
+    ventilator: boolean;
+    other_devices: string[];
+  };
   emergency_contacts: Array<{
-    name: string
-    relationship: string
-    phone: string
-    is_primary: boolean
-  }>
+    name: string;
+    relationship: string;
+    phone: string;
+    is_primary: boolean;
+  }>;
   medications: Array<{
-    name: string
-    dosage: string
-    frequency: string
-    route: string
-    started_date: string
-  }>
+    name: string;
+    dosage: string;
+    frequency: string;
+    route: string;
+    started_date: string;
+  }>;
 }
 
 interface ClinicalNote {
-  _id: string
-  encounter_date: string
-  encounter_type: string
-  encounter_location: string
-  note_sections: Record<string, string>
+  _id: string;
+  encounter_date: string;
+  encounter_type: string;
+  encounter_location: string;
+  note_sections: Record<string, string>;
+  raw_transcript?: string;
+  audio_metadata?: {
+    duration_seconds?: number;
+    transcription_provider?: string;
+    transcription_confidence?: number;
+  };
+  ai_analysis_metadata?: {
+    analysis_confidence?: number;
+    model_used?: string;
+  };
   extracted_content: {
-    symptoms: string[]
-    vital_signs: Record<string, any>
+    symptoms: string[];
+    vital_signs: Record<string, any>;
+    medications_mentioned?: string[];
+    procedures_mentioned?: string[];
+    diagnoses_mentioned?: string[];
     follow_up_items: Array<{
-      item: string
-      priority: string
-      due_date?: string
-    }>
-  }
-  status: string
-  completeness_score: number
+      item: string;
+      priority: string;
+      due_date?: string;
+    }>;
+  };
+  status: string;
+  primary_provider: string;
+  attending_physician: string;
+  completeness_score: number;
 }
 
 interface PatientResponse {
-  patient: Patient
-  clinicalNotes: ClinicalNote[]
+  patient: Patient;
+  clinicalNotes: ClinicalNote[];
   stats: {
-    totalNotes: number
-    recentNotes: number
-    avgCompletenessScore: number
-  }
+    totalNotes: number;
+    recentNotes: number;
+    avgCompletenessScore: number;
+  };
 }
 
-export default function PatientDetailsPage({ params }: PatientDetailsPageProps) {
-  const patientId = params.id
-  const [activeTab, setActiveTab] = useState("overview")
-  const [patientData, setPatientData] = useState<PatientResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export default function PatientDetailsPage({
+  params,
+}: PatientDetailsPageProps) {
+  const patientId = params.id;
+  const [patientData, setPatientData] = useState<PatientResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportingNotes, setExportingNotes] = useState<ClinicalNote[]>([]);
+
+  console.log("Patient ID:", patientData);
 
   useEffect(() => {
-    fetchPatientData()
-  }, [patientId])
+    fetchPatientData();
+  }, [patientId]);
 
   const fetchPatientData = async () => {
     try {
-      setLoading(true)
-      const response = await fetchWithoutCache(`/api/patients/${patientId}`)
+      setLoading(true);
+      const response = await fetchWithoutCache(`/api/patients/${patientId}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch patient data')
+        throw new Error("Failed to fetch patient data");
       }
-      const data: PatientResponse = await response.json()
-      setPatientData(data)
+      const data: PatientResponse = await response.json();
+      setPatientData(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load patient')
+      setError(err instanceof Error ? err.message : "Failed to load patient");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const formatEncounterType = (type: string) => {
+    const formatted = {
+      rounds: "Ward Round",
+      consult: "Consult",
+      family_meeting: "Family Meeting",
+      procedure: "Procedure",
+      discharge: "Discharge",
+      emergency: "Emergency",
+    };
+    return formatted[type as keyof typeof formatted] || type;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Active":
+        return "bg-green-100 text-green-800";
+      case "Follow-up":
+        return "bg-yellow-100 text-yellow-800";
+      case "Discharged":
+        return "bg-gray-100 text-gray-800";
+      case "Transferred":
+        return "bg-blue-100 text-blue-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
 
   if (loading) {
     return (
@@ -127,7 +189,7 @@ export default function PatientDetailsPage({ params }: PatientDetailsPageProps) 
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error || !patientData) {
@@ -144,216 +206,213 @@ export default function PatientDetailsPage({ params }: PatientDetailsPageProps) 
           </div>
         </div>
       </div>
-    )
+    );
   }
 
-  const { patient, clinicalNotes, stats } = patientData
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800'
-      case 'Follow-up': return 'bg-yellow-100 text-yellow-800'
-      case 'Discharged': return 'bg-gray-100 text-gray-800'
-      case 'Transferred': return 'bg-blue-100 text-blue-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  // Generate AI summary from clinical notes
-  const generateAiSummary = () => {
-    const recentNote = clinicalNotes[0]
-    if (recentNote) {
-      const symptoms = recentNote.extracted_content.symptoms.join(', ')
-      return `${patient.name} (${patient.mrn}) with ${patient.primary_diagnosis}. Recent symptoms: ${symptoms}. Total clinical notes: ${stats.totalNotes}. Completeness: ${stats.avgCompletenessScore}%.`
-    }
-    return `${patient.name} (${patient.mrn}) with ${patient.primary_diagnosis}. Currently ${patient.status.toLowerCase()} at ${patient.current_location}.`
-  }
-
-  // Get clinical content from notes
-  const getClinicalSummary = () => {
-    const summaryNote = clinicalNotes.find(note => note.note_sections.subjective || note.note_sections.assessment_plan)
-    return summaryNote?.note_sections.subjective || summaryNote?.note_sections.assessment_plan || 'No clinical summary available.'
-  }
-
-  const getIntraopDetails = () => {
-    const procNote = clinicalNotes.find(note => note.encounter_type === 'procedure')
-    return procNote?.note_sections.objective || procNote?.note_sections.assessment_plan || 'No intraoperative details available.'
-  }
-
-  // Generate reminders from follow-up items
-  const generateReminders = () => {
-    const reminders: Array<{id: string, type: string, description: string, dueDate: string}> = []
-    
-    clinicalNotes.forEach((note, index) => {
-      note.extracted_content.follow_up_items.forEach((item, itemIndex) => {
-        reminders.push({
-          id: `${note._id}_${itemIndex}`,
-          type: item.priority === 'high' ? 'Urgent' : 'Follow-up',
-          description: item.item,
-          dueDate: item.due_date || 'TBD'
-        })
-      })
-    })
-    
-    return reminders
-  }
+  const { patient } = patientData;
 
   return (
-    <div className="relative flex min-h-screen bg-secondary">
+    <div className="relative flex min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 md:ml-20 flex flex-col">
-        <header className="flex items-center p-4 bg-primary text-white shadow-md sticky top-0 z-10">
-          <div className="flex items-center flex-1 min-w-0">
-            <div className="w-12 md:w-0 flex-shrink-0"></div>
-            <Link href="/patients" passHref>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-primary/80 mr-3 flex-shrink-0"
-                aria-label="Back to Patients List"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg md:text-xl font-bold truncate">
+      <main className="flex-1 p-6 pb-20 max-w-7xl mx-auto w-full">
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="flex-1">
+              <div className="flex items-center gap-4 mb-4">
+                <Link href="/patients">
+                  <Button variant="ghost" size="sm">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Patients
+                  </Button>
+                </Link>
+                <Badge className={getStatusColor(patient.status)}>
+                  {patient.status}
+                </Badge>
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 {patient.name}
               </h1>
-              <p className="text-sm opacity-90 truncate">{patient.mrn}</p>
-            </div>
-          </div>
-        </header>
-
-        {/* Patient Info Banner - Mobile Optimized */}
-        <div className="bg-white border-b border-gray-200 p-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="h-5 w-5 text-primary" />
-                  <span className="font-medium text-primary">{patient.primary_diagnosis}</span>
+              <div className="flex flex-wrap items-center gap-6 text-gray-600">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  <span>{patient.age}y</span>
                 </div>
-                <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                  <span>Age: {patient.age}</span>
-                  <span>Location: {patient.current_location}</span>
-                  <span>Admitted: {new Date(patient.admission_date).toLocaleDateString()}</span>
-                  <span>Attending: {patient.attending_physician}</span>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span>MRN: {patient.mrn}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    Admitted:{" "}
+                    {new Date(patient.admission_date).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span>
+                    Day{" "}
+                    {Math.ceil(
+                      (new Date().getTime() -
+                        new Date(patient.admission_date).getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )}
+                  </span>
                 </div>
               </div>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(patient.status)} self-start sm:self-center`}>
-                {patient.status}
-              </span>
+            </div>
+            <div className="flex gap-3">
+              <Link href={`/patients/${patientId}/clinical-notes`}>
+                <Button className="bg-primary hover:bg-primary/90">
+                  <FileText className="h-4 w-4 mr-2" />
+                  View All Notes
+                </Button>
+              </Link>
+              <Link href={`/patients/${patientId}/documents`}>
+                <Button variant="outline">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Documents & Media
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
 
-        <main className="flex-1 p-4 pb-28 max-w-6xl mx-auto w-full">
-          {/* Mobile Tabs */}
-          <div className="block lg:hidden mb-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 bg-white border border-gray-200">
-                <TabsTrigger value="overview" className="text-xs py-3 px-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-                  <User className="h-3 w-3 mb-1" />
-                  <span className="block">Overview</span>
-                </TabsTrigger>
-                <TabsTrigger value="clinical" className="text-xs py-3 px-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-                  <FileText className="h-3 w-3 mb-1" />
-                  <span className="block">Clinical</span>
-                </TabsTrigger>
-                <TabsTrigger value="media" className="text-xs py-3 px-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-                  <Upload className="h-3 w-3 mb-1" />
-                  <span className="block">Media</span>
-                </TabsTrigger>
-                <TabsTrigger value="ai" className="text-xs py-3 px-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-                  <Bot className="h-3 w-3 mb-1" />
-                  <span className="block">AI/Tasks</span>
-                </TabsTrigger>
-              </TabsList>
+        {/* Main Content */}
+        <div className="space-y-8">
+          {/* Latest Assessment */}
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center gap-3">
+                <Bot className="h-6 w-6 text-primary" />
+                Latest Clinical Assessment
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {patientData.clinicalNotes.length > 0 ? (
+                <div className="bg-blue-50 p-6 rounded-xl">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h4 className="font-semibold text-blue-900">
+                        {formatEncounterType(
+                          patientData.clinicalNotes[0].encounter_type
+                        )}
+                      </h4>
+                      <p className="text-sm text-blue-700">
+                        {new Date(
+                          patientData.clinicalNotes[0].encounter_date
+                        ).toLocaleDateString()}{" "}
+                        •{patientData.clinicalNotes[0].encounter_location}
+                      </p>
+                    </div>
+                    {patientData.clinicalNotes[0].ai_analysis_metadata && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-purple-100 text-purple-800"
+                      >
+                        AI:{" "}
+                        {Math.round(
+                          (patientData.clinicalNotes[0].ai_analysis_metadata
+                            .analysis_confidence || 0) * 100
+                        )}
+                        %
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-blue-900 leading-relaxed">
+                    {patientData.clinicalNotes[0].note_sections.assessment_plan?.substring(
+                      0,
+                      400
+                    ) ||
+                      patientData.clinicalNotes[0].note_sections.subjective?.substring(
+                        0,
+                        400
+                      ) ||
+                      "No assessment available"}
+                    {(patientData.clinicalNotes[0].note_sections.assessment_plan
+                      ?.length > 400 ||
+                      patientData.clinicalNotes[0].note_sections.subjective
+                        ?.length > 400) &&
+                      "..."}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No clinical assessments available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-              <TabsContent value="overview" className="mt-6 space-y-6">
-                <Card className="bg-white shadow-sm border border-gray-200">
-                  <CardHeader>
-                    <CardTitle className="text-primary">Patient Overview</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-800">{generateAiSummary()}</p>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="clinical" className="mt-6 space-y-6">
-                <CaseDetailsSection
-                  title="Clinical Summary"
-                  content={getClinicalSummary()}
-                  placeholder="No clinical summary available. Upload notes or transcribe a consult."
-                />
-                <CaseDetailsSection
-                  title="Intraoperative Details"
-                  content={getIntraopDetails()}
-                  placeholder="No intraoperative details available. Upload notes or transcribe surgical debrief."
-                />
-              </TabsContent>
-
-              <TabsContent value="media" className="mt-6 space-y-6">
-                <MediaUploadCard title="Clinical Pictures" type="image" />
-                <MediaUploadCard title="Intra-op Images/Videos" type="video" />
-                <MediaUploadCard title="Brief Case Notes" type="text" />
-              </TabsContent>
-
-              <TabsContent value="ai" className="mt-6 space-y-6">
-                <AiInsightsCard
-                  missingFields={['Post-op imaging report', 'Discharge summary']}
-                  structuredSynopsis={`**Patient:** ${patient.name}\n**MRN:** ${patient.mrn}\n**Diagnosis:** ${patient.primary_diagnosis}\n**Status:** ${patient.status}\n**Location:** ${patient.current_location}\n**Procedures:** ${patient.procedures.map(p => p.name).join(', ') || 'None'}\n**Clinical Notes:** ${stats.totalNotes}`}
-                />
-                <FollowUpRemindersCard reminders={generateReminders()} />
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Desktop Layout */}
-          <div className="hidden lg:grid lg:grid-cols-3 gap-6">
-            {/* Left Column: Overview, AI Insights, Reminders */}
-            <div className="lg:col-span-1 space-y-6">
-              <Card className="bg-white shadow-sm border border-gray-200">
+          {/* Navigation to Detailed Pages */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mx-auto">
+            <Link href={`/patients/${patientId}/clinical-notes`}>
+              <Card className="border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
                 <CardHeader>
-                  <CardTitle className="text-primary">Patient Overview</CardTitle>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-primary" />
+                      Clinical Notes
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-gray-800">{generateAiSummary()}</p>
+                <CardContent className="h-full">
+                  <div className="space-y-3 h-full">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Notes:</span>
+                      <span className="font-semibold">
+                        {patientData.stats.totalNotes}
+                      </span>
+                    </div>
+                    {/* Add empty space to match height */}
+                    <div className="flex-1"></div>
+                  </div>
                 </CardContent>
               </Card>
+            </Link>
 
-              <AiInsightsCard
-                missingFields={['Post-op imaging report', 'Discharge summary']}
-                structuredSynopsis={`**Patient:** ${patient.name}\n**MRN:** ${patient.mrn}\n**Diagnosis:** ${patient.primary_diagnosis}\n**Status:** ${patient.status}\n**Location:** ${patient.current_location}\n**Procedures:** ${patient.procedures.map(p => p.name).join(', ') || 'None'}\n**Clinical Notes:** ${stats.totalNotes}`}
-              />
-
-              <FollowUpRemindersCard reminders={generateReminders()} />
-            </div>
-
-            {/* Middle Column: Clinical Data Sections */}
-            <div className="lg:col-span-1 space-y-6">
-              <CaseDetailsSection
-                title="Clinical Summary"
-                content={getClinicalSummary()}
-                placeholder="No clinical summary available. Upload notes or transcribe a consult."
-              />
-              <CaseDetailsSection
-                title="Intraoperative Details"
-                content={getIntraopDetails()}
-                placeholder="No intraoperative details available. Upload notes or transcribe surgical debrief."
-              />
-            </div>
-
-            {/* Right Column: Media Uploads */}
-            <div className="lg:col-span-1 space-y-6">
-              <MediaUploadCard title="Clinical Pictures" type="image" />
-              <MediaUploadCard title="Intra-op Images/Videos" type="video" />
-              <MediaUploadCard title="Brief Case Notes" type="text" />
-            </div>
+            <Link href={`/patients/${patientId}/documents`}>
+              <Card className="border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Upload className="h-5 w-5 text-primary" />
+                      Media & Images
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-full">
+                  <div className="space-y-3 h-full">
+                    <p className="text-gray-600 text-sm">
+                      Clinical photos, imaging studies, and documents
+                    </p>
+                    {/* Add empty space to match height */}
+                    <div className="flex-1"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => {
+          setShowExportModal(false);
+          setExportingNotes([]);
+        }}
+        notes={exportingNotes.map((note) => ({ ...note, patient: patient }))}
+        title={
+          exportingNotes.length === 1
+            ? "Export Clinical Note"
+            : `Export ${exportingNotes.length} Clinical Notes`
+        }
+      />
     </div>
-  )
+  );
 }
