@@ -142,23 +142,32 @@ TRANSCRIPT TO ANALYZE:
 
   static async analyzeTranscript(transcript: string): Promise<AIAnalysisResponse> {
     try {
-      const response = await fetch('/api/ai-analysis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: this.ANALYSIS_PROMPT,
-          transcript: transcript
-        }),
+      // Import LiteLLM service dynamically to avoid circular dependency
+      const { LiteLLMService } = await import('./litellm.service')
+      
+      const litellmService = new LiteLLMService()
+      
+      const fullPrompt = `${this.ANALYSIS_PROMPT}\n\n${transcript}`
+      
+      const response = await litellmService.chatCompletion([
+        {
+          role: 'user',
+          content: fullPrompt
+        }
+      ], {
+        model: 'claude-3-sonnet-20240229', // Use Claude for medical analysis
+        temperature: 0.1, // Low temperature for consistent medical analysis
+        max_tokens: 4000
       })
 
-      if (!response.ok) {
-        throw new Error(`AI Analysis API failed: ${response.status}`)
+      // Parse JSON from AI response
+      const jsonMatch = response.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        throw new Error('Invalid JSON response from AI')
       }
 
-      const data = await response.json()
-      return this.validateAndCleanResponse(data)
+      const analysisResult = JSON.parse(jsonMatch[0])
+      return this.validateAndCleanResponse(analysisResult)
     } catch (error) {
       console.error('AI Clinical Analysis failed:', error)
       throw new Error('Failed to analyze transcript with AI')
