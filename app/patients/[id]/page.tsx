@@ -270,31 +270,31 @@ export default function PatientDetailsPage({
                 </div>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
               <Button
                 variant="outline"
                 onClick={() => setIsEditModalOpen(true)}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto flex items-center justify-center"
               >
                 <Edit className="h-4 w-4 mr-2" />
-                <span className="sm:inline">Edit Patient</span>
+                <span>Edit Patient</span>
               </Button>
               <Link href={`/patients/${patientId}/chat`} className="w-full sm:w-auto">
-                <Button variant="outline" className="w-full bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100">
+                <Button variant="outline" className="w-full bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100 flex items-center justify-center">
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  <span className="sm:inline">AI Chat</span>
+                  <span>AI Chat</span>
                 </Button>
               </Link>
               <Link href={`/patients/${patientId}/clinical-notes`} className="w-full sm:w-auto">
-                <Button className="w-full bg-primary hover:bg-primary/90">
+                <Button className="w-full bg-primary hover:bg-primary/90 flex items-center justify-center">
                   <FileText className="h-4 w-4 mr-2" />
-                  <span className="sm:inline">View All Notes</span>
+                  <span>View All Notes</span>
                 </Button>
               </Link>
               <Link href={`/patients/${patientId}/documents`} className="w-full sm:w-auto">
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full flex items-center justify-center">
                   <Upload className="h-4 w-4 mr-2" />
-                  <span className="sm:inline">Documents & Media</span>
+                  <span>Documents & Media</span>
                 </Button>
               </Link>
             </div>

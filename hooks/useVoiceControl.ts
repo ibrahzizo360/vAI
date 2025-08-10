@@ -33,6 +33,7 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
 
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const isInitializedRef = useRef(false)
+  const isStartingRef = useRef(false)
 
   // Check if Web Speech API is supported
   useEffect(() => {
@@ -246,32 +247,29 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
       // Check for recent/history commands
       if (recentPatterns.some(pattern => pattern.test(actualCommand))) {
         console.log('Voice command: Show recent')
-        // For now, go to patients page (could be enhanced to show recent patients)
-        router.push('/patients')
+        router.push('/history')
         return 'Showing recent activity'
       }
 
       // Check for notes commands
       if (notesPatterns.some(pattern => pattern.test(actualCommand))) {
         console.log('Voice command: Show notes')
-        // Go to patients page since notes are accessed through patients
         router.push('/patients')
-        return 'Navigating to clinical notes'
+        return 'Navigating to patients - select a patient to view notes'
       }
 
       // Check for search commands
       if (searchPatterns.some(pattern => pattern.test(actualCommand))) {
         console.log('Voice command: Search')
         router.push('/patients')
-        return 'Opening search - use the search bar on patients page'
+        return 'Opening patients page - use the search bar'
       }
 
       // Check for AI chat commands
       if (chatPatterns.some(pattern => pattern.test(actualCommand))) {
         console.log('Voice command: Show AI chat')
-        // For now, go to patients page where AI chat is available
-        router.push('/patients')
-        return 'Opening AI chat - select a patient to chat about them'
+        router.push('/chat')
+        return 'Opening AI chat'
       }
 
       // Check for help commands
@@ -323,6 +321,7 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
       recognition.onstart = () => {
         console.log('Voice recognition started')
         setState(prev => ({ ...prev, isListening: true, error: null }))
+        isStartingRef.current = false
       }
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
@@ -358,14 +357,19 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
           isListening: false,
           isProcessingCommand: false
         }))
+        isStartingRef.current = false
         
-        // Restart after error (except for not-allowed)
-        if (event.error !== 'not-allowed') {
+        // Only restart for certain errors, not for aborted or not-allowed
+        if (event.error !== 'not-allowed' && event.error !== 'aborted') {
           setTimeout(() => {
             try {
-              recognition.start()
+              if (!isStartingRef.current && recognition.readyState === 0) {
+                isStartingRef.current = true
+                recognition.start()
+              }
             } catch (err) {
               console.error('Failed to restart recognition:', err)
+              isStartingRef.current = false
             }
           }, 1000)
         }
@@ -374,14 +378,19 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
       recognition.onend = () => {
         console.log('Voice recognition ended')
         setState(prev => ({ ...prev, isListening: false }))
+        isStartingRef.current = false
         
         // Restart recognition to keep listening
-        if (enabled && state.isSupported) {
+        if (enabled && state.isSupported && !isStartingRef.current) {
           setTimeout(() => {
             try {
-              recognition.start()
+              if (!isStartingRef.current && recognition.readyState === 0) {
+                isStartingRef.current = true
+                recognition.start()
+              }
             } catch (err) {
               console.error('Failed to restart recognition:', err)
+              isStartingRef.current = false
             }
           }, 100)
         }
@@ -392,7 +401,10 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
 
       // Start recognition
       console.log('Voice control - Starting speech recognition...')
-      recognition.start()
+      if (!isStartingRef.current) {
+        isStartingRef.current = true
+        recognition.start()
+      }
 
     } catch (error) {
       console.error('Failed to initialize speech recognition:', error)
