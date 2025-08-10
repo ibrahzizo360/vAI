@@ -101,47 +101,49 @@ export default function PatientsPage() {
   return (
     <div className="relative flex min-h-screen bg-secondary">
       <Sidebar />
-      <div className="flex-1 md:ml-20 flex flex-col">
-        <header className="flex items-center justify-between p-4 bg-primary text-white shadow-md sticky top-0 z-10">
-          <h1 className="text-xl font-bold ml-12 md:ml-0">Patients</h1>
-          <span className="text-sm opacity-90">{filteredPatients.length} patients</span>
+      <div className="flex-1 md:ml-20 flex flex-col pb-24 md:pb-0">
+        <header className="flex items-center justify-between p-3 md:p-4 bg-primary text-white shadow-md sticky top-0 z-10">
+          <h1 className="text-lg md:text-xl font-bold">Patients</h1>
+          <span className="text-xs md:text-sm opacity-90">{filteredPatients.length} patients</span>
         </header>
         <main className="flex-1 p-4 pb-28">
           <div className="w-full max-w-6xl mx-auto space-y-6">
-            <div className="mb-6">
-              <h2 className="text-2xl md:text-3xl font-semibold text-primary mb-2">Patient Directory</h2>
-              <p className="text-gray-600 text-base md:text-lg">Manage and view patient records.</p>
+            <div className="mb-4 md:mb-6">
+              <h2 className="text-xl md:text-2xl lg:text-3xl font-semibold text-primary mb-2">Patient Directory</h2>
+              <p className="text-gray-600 text-sm md:text-base lg:text-lg">Manage and view patient records.</p>
             </div>
 
             {/* Search and Actions */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mb-4 md:mb-6">
               <div className="relative flex-1">
                 <Input
-                  placeholder="Search patients by MRN, name, or diagnosis"
+                  placeholder="Search patients..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-3 border rounded-lg focus:ring-primary focus:border-primary"
+                  className="pl-10 pr-4 py-2 md:py-3 border rounded-lg focus:ring-primary focus:border-primary text-sm md:text-base"
                   aria-label="Search patients"
                 />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-gray-400" />
               </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
-                  className="border-primary text-primary hover:bg-primary/5 px-4 py-3"
+                  className="border-primary text-primary hover:bg-primary/5 px-3 md:px-4 py-2 md:py-3"
+                  size="sm"
                   aria-label="Toggle filters"
                 >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
+                  <Filter className="h-4 w-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Filters</span>
                 </Button>
                 <Button
-                  className="bg-primary text-white px-4 py-3 rounded-lg hover:bg-primary/90 whitespace-nowrap"
+                  className="bg-primary text-white px-3 md:px-4 py-2 md:py-3 rounded-lg hover:bg-primary/90 whitespace-nowrap"
                   aria-label="Add new patient"
                   onClick={() => setIsAddModalOpen(true)}
                 >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add Patient
+                  <UserPlus className="h-4 w-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Add Patient</span>
+                  <span className="sm:hidden">Add</span>
                 </Button>
               </div>
             </div>

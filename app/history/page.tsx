@@ -207,10 +207,10 @@ export default function HistoryPage() {
   return (
     <div className="relative flex min-h-screen bg-secondary">
       <Sidebar />
-      <div className="flex-1 md:ml-20 flex flex-col">
-        <header className="flex items-center justify-between p-4 bg-primary text-white shadow-md sticky top-0 z-10">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold ml-12 md:ml-0">Transcript History</h1>
+      <div className="flex-1 md:ml-20 flex flex-col pb-24 md:pb-0">
+        <header className="flex items-center justify-between p-3 md:p-4 bg-primary text-white shadow-md sticky top-0 z-10">
+          <div className="flex items-center gap-2 md:gap-4">
+            <h1 className="text-lg md:text-xl font-bold">Transcript History</h1>
             <Button
               variant="ghost"
               size="sm"

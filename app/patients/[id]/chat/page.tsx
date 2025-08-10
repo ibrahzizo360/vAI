@@ -217,27 +217,28 @@ export default function PatientChatPage({ params }: PatientChatPageProps) {
   return (
     <div className="relative flex min-h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 p-6 pb-20 max-w-7xl mx-auto w-full">
+      <main className="flex-1 md:ml-20 p-4 md:p-6 pb-24 md:pb-6 max-w-7xl mx-auto w-full">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 mb-4 md:mb-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <Link href={`/patients/${patientId}`}>
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Back to Patient Details</span>
+                  <span className="sm:hidden">Back</span>
+                </Button>
+              </Link>
+              <Badge className={`bg-${context.patient.status === "Active" ? "green" : "gray"}-100 text-${context.patient.status === "Active" ? "green" : "gray"}-800`}>
+                {context.patient.status}
+              </Badge>
+            </div>
             <div className="flex-1">
-              <div className="flex items-center gap-4 mb-4">
-                <Link href={`/patients/${patientId}`}>
-                  <Button variant="ghost" size="sm">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Patient Details
-                  </Button>
-                </Link>
-                <Badge className={`bg-${context.patient.status === "Active" ? "green" : "gray"}-100 text-${context.patient.status === "Active" ? "green" : "gray"}-800`}>
-                  {context.patient.status}
-                </Badge>
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                <MessageSquare className="h-8 w-8 text-blue-600" />
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+                <MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-blue-600" />
                 AI Patient Chat
               </h1>
-              <div className="flex flex-wrap items-center gap-6 text-gray-600">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-6 text-sm md:text-base text-gray-600">
                 <div className="flex items-center gap-2">
                   <UserIcon className="h-4 w-4" />
                   <span>{context.patient.name}</span>
@@ -256,15 +257,15 @@ export default function PatientChatPage({ params }: PatientChatPageProps) {
         </div>
 
         {/* Chat Interface */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-[calc(100vh-300px)] flex flex-col">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-[calc(100vh-380px)] md:h-[calc(100vh-300px)] flex flex-col">
           {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 md:space-y-4">
             {messages.map((message, index) => (
               <div
                 key={index}
                 className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex gap-2 md:gap-3 max-w-[90%] md:max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                     message.role === 'user' 
                       ? 'bg-blue-600 text-white' 
@@ -276,7 +277,7 @@ export default function PatientChatPage({ params }: PatientChatPageProps) {
                       <Bot className="h-4 w-4" />
                     )}
                   </div>
-                  <div className={`rounded-lg p-4 ${
+                  <div className={`rounded-lg p-3 md:p-4 ${
                     message.role === 'user'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-900'
@@ -316,20 +317,21 @@ export default function PatientChatPage({ params }: PatientChatPageProps) {
           </div>
 
           {/* Message Input */}
-          <div className="border-t p-4">
+          <div className="border-t p-3 md:p-4">
             <div className="flex gap-2">
               <Input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={`Ask me anything about ${context.patient.name}...`}
+                placeholder={`Ask about ${context.patient.name}...`}
                 disabled={isLoading}
-                className="flex-1"
+                className="flex-1 text-sm md:text-base"
               />
               <Button 
                 onClick={sendMessage} 
                 disabled={!inputMessage.trim() || isLoading}
-                className="px-6"
+                size="sm"
+                className="px-3 md:px-6"
               >
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -338,7 +340,7 @@ export default function PatientChatPage({ params }: PatientChatPageProps) {
                 )}
               </Button>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-gray-500 mt-2 hidden md:block">
               Ask about symptoms, medications, visit history, lab results, or any other patient details.
             </p>
           </div>

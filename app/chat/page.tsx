@@ -221,21 +221,20 @@ I'm here to help you with:
   return (
     <div className="relative flex min-h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 p-6 pb-20 max-w-7xl mx-auto w-full">
+      <main className="flex-1 md:ml-20 p-4 md:p-6 pb-24 md:pb-6 max-w-7xl mx-auto w-full">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 mb-4 md:mb-6">
+          <div className="flex flex-col gap-4">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                <Brain className="h-8 w-8 text-purple-600" />
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+                <Brain className="h-6 w-6 md:h-8 md:w-8 text-purple-600" />
                 AI Medical Assistant
               </h1>
-              <p className="text-gray-600 max-w-2xl">
+              <p className="text-sm md:text-base text-gray-600">
                 Your intelligent assistant for clinical decision support, medical knowledge, and system insights.
-                Ask questions about diagnoses, treatments, best practices, or get insights from your clinical data.
               </p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className="flex items-center gap-2">
                 <Switch
                   checked={includeSystemContext}
@@ -246,7 +245,7 @@ I'm here to help you with:
                   Include System Data
                 </label>
               </div>
-              <Button variant="outline" onClick={clearChat}>
+              <Button variant="outline" onClick={clearChat} size="sm">
                 Clear Chat
               </Button>
             </div>
@@ -254,29 +253,29 @@ I'm here to help you with:
         </div>
 
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
           {/* Suggested Prompts */}
-          <div className="lg:col-span-1 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Lightbulb className="h-5 w-5" />
+          <div className="lg:col-span-1 space-y-4 order-2 lg:order-1">
+            <Card className="lg:sticky lg:top-4">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base md:text-lg flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 md:h-5 md:w-5" />
                   Suggested Questions
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 {SUGGESTED_PROMPTS.map((category, categoryIndex) => (
                   <div key={categoryIndex}>
                     <div className="flex items-center gap-2 mb-2">
-                      <category.icon className="h-4 w-4 text-gray-500" />
-                      <h4 className="font-medium text-sm text-gray-700">{category.category}</h4>
+                      <category.icon className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                      <h4 className="font-medium text-xs md:text-sm text-gray-700">{category.category}</h4>
                     </div>
                     <div className="space-y-1">
                       {category.prompts.slice(0, 2).map((prompt, promptIndex) => (
                         <button
                           key={promptIndex}
                           onClick={() => sendMessage(prompt)}
-                          className="text-left text-xs text-gray-600 hover:text-purple-600 hover:bg-purple-50 p-2 rounded transition-colors w-full"
+                          className="text-left text-xs text-gray-600 hover:text-purple-600 hover:bg-purple-50 p-2 rounded transition-colors w-full line-clamp-2"
                           disabled={isLoading}
                         >
                           {prompt}
@@ -290,16 +289,16 @@ I'm here to help you with:
           </div>
 
           {/* Chat Interface */}
-          <div className="lg:col-span-3">
-            <Card className="h-[calc(100vh-200px)] flex flex-col">
+          <div className="lg:col-span-3 order-1 lg:order-2">
+            <Card className="h-[calc(100vh-280px)] md:h-[calc(100vh-200px)] flex flex-col">
               {/* Chat Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 md:space-y-4">
                 {messages.map((message, index) => (
                   <div
                     key={index}
                     className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`flex gap-2 md:gap-3 max-w-[90%] md:max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                       <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                         message.role === 'user' 
                           ? 'bg-blue-600 text-white' 
@@ -311,7 +310,7 @@ I'm here to help you with:
                           <Bot className="h-4 w-4" />
                         )}
                       </div>
-                      <div className={`rounded-lg p-4 ${
+                      <div className={`rounded-lg p-3 md:p-4 ${
                         message.role === 'user'
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-900'
@@ -351,20 +350,21 @@ I'm here to help you with:
               </div>
 
               {/* Message Input */}
-              <div className="border-t p-4">
+              <div className="border-t p-3 md:p-4">
                 <div className="flex gap-2">
                   <Input
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Ask me about medical knowledge, clinical decisions, or system insights..."
+                    placeholder="Ask me about medical knowledge..."
                     disabled={isLoading}
-                    className="flex-1"
+                    className="flex-1 text-sm md:text-base"
                   />
                   <Button 
                     onClick={() => sendMessage()} 
                     disabled={!inputMessage.trim() || isLoading}
-                    className="px-6"
+                    size="sm"
+                    className="px-3 md:px-6"
                   >
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -373,7 +373,7 @@ I'm here to help you with:
                     )}
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-gray-500 mt-2 hidden md:block">
                   Ask about diagnoses, treatments, best practices, or enable system data for clinical insights.
                 </p>
               </div>

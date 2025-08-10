@@ -279,7 +279,7 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
   return (
     <div className="relative flex min-h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 p-6 pb-20 max-w-7xl mx-auto w-full">
+      <main className="flex-1 md:ml-20 p-4 md:p-6 pb-24 md:pb-6 max-w-7xl mx-auto w-full">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">

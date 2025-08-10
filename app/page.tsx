@@ -91,9 +91,9 @@ export default function HomePage() {
   return (
     <div className="relative flex min-h-screen bg-secondary">
       <Sidebar />
-      <div className="flex-1 md:ml-20 flex flex-col">
-        <header className="flex items-center justify-between p-4 bg-primary text-white shadow-md sticky top-0 z-10">
-          <h1 className="text-xl font-bold ml-12 md:ml-0">vAI</h1>
+      <div className="flex-1 md:ml-20 flex flex-col pb-24 md:pb-0">
+        <header className="flex items-center justify-between p-3 md:p-4 bg-primary text-white shadow-md sticky top-0 z-10">
+          <h1 className="text-lg md:text-xl font-bold">vAI</h1>
         </header>
         <main className="flex-1 p-4 pb-28 max-w-6xl mx-auto w-full">
           {/* Voice Status Banner */}
