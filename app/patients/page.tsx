@@ -4,20 +4,31 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Sidebar } from "@/components/custom/sidebar"
-import { UserPlus, Search, FileText, Filter, Users, Loader2 } from "lucide-react"
+import { UserPlus, Search, FileText, Filter, Users, Loader2, Edit } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { fetchWithoutCache } from "@/lib/utils/cache"
+import { AddPatientModal } from "@/components/custom/add-patient-modal"
+import { EditPatientModal } from "@/components/custom/edit-patient-modal"
 
 interface Patient {
   _id: string
   mrn: string
   name: string
+  dob: string
+  age: number
+  sex: string
   admission_date: string
+  admission_source: string
   status: string
   primary_diagnosis: string
+  secondary_diagnoses: string[]
   current_location: string
   attending_physician: string
+  resident_physician?: string
+  room_number?: string
+  past_medical_history: string[]
+  allergies: string[]
 }
 
 interface PatientsResponse {
@@ -42,6 +53,9 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<PatientsResponse['filters'] | null>(null)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
 
   useEffect(() => {
     fetchPatients()
@@ -62,6 +76,11 @@ export default function PatientsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleEditPatient = (patient: Patient) => {
+    setSelectedPatient(patient)
+    setIsEditModalOpen(true)
   }
 
   const filteredPatients = patients.filter(patient => 
@@ -119,6 +138,7 @@ export default function PatientsPage() {
                 <Button
                   className="bg-primary text-white px-4 py-3 rounded-lg hover:bg-primary/90 whitespace-nowrap"
                   aria-label="Add new patient"
+                  onClick={() => setIsAddModalOpen(true)}
                 >
                   <UserPlus className="h-4 w-4 mr-2" />
                   Add Patient
@@ -194,15 +214,26 @@ export default function PatientsPage() {
                           Admitted: {new Date(patient.admission_date).toLocaleDateString()}
                         </p>
                       </div>
-                      <Link href={`/patients/${patient._id}`} passHref>
-                        <Button 
-                          variant="link" 
-                          className="p-0 h-auto text-primary hover:underline text-sm font-medium w-full justify-start"
-                          aria-label={`View details for ${patient.name}`}
+                      <div className="flex gap-2">
+                        <Link href={`/patients/${patient._id}`} passHref className="flex-1">
+                          <Button 
+                            variant="link" 
+                            className="p-0 h-auto text-primary hover:underline text-sm font-medium w-full justify-start"
+                            aria-label={`View details for ${patient.name}`}
+                          >
+                            View Details <FileText className="h-3 w-3 ml-1" />
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditPatient(patient)}
+                          className="text-gray-500 hover:text-primary"
+                          aria-label={`Edit ${patient.name}`}
                         >
-                          View Details <FileText className="h-3 w-3 ml-1" />
+                          <Edit className="h-3 w-3" />
                         </Button>
-                      </Link>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -224,7 +255,10 @@ export default function PatientsPage() {
                 <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600 text-lg mb-2">No patients in database</p>
                 <p className="text-gray-500 text-sm mb-4">Get started by adding your first patient</p>
-                <Button className="bg-primary text-white">
+                <Button 
+                  className="bg-primary text-white"
+                  onClick={() => setIsAddModalOpen(true)}
+                >
                   <UserPlus className="h-4 w-4 mr-2" />
                   Add First Patient
                 </Button>
@@ -233,6 +267,22 @@ export default function PatientsPage() {
           </div>
         </main>
       </div>
+
+      <AddPatientModal 
+        open={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onPatientAdded={fetchPatients}
+      />
+
+      <EditPatientModal 
+        open={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setSelectedPatient(null)
+        }}
+        patient={selectedPatient}
+        onPatientUpdated={fetchPatients}
+      />
     </div>
   )
 }

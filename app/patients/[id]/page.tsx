@@ -24,9 +24,11 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Edit,
 } from "lucide-react";
 import Link from "next/link";
 import { fetchWithoutCache } from "@/lib/utils/cache";
+import { EditPatientModal } from "@/components/custom/edit-patient-modal";
 
 interface PatientDetailsPageProps {
   params: {
@@ -128,6 +130,7 @@ export default function PatientDetailsPage({
   const [error, setError] = useState<string | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportingNotes, setExportingNotes] = useState<ClinicalNote[]>([]);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   console.log("Patient ID:", patientData);
 
@@ -263,6 +266,13 @@ export default function PatientDetailsPage({
               </div>
             </div>
             <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditModalOpen(true)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Patient
+              </Button>
               <Link href={`/patients/${patientId}/clinical-notes`}>
                 <Button className="bg-primary hover:bg-primary/90">
                   <FileText className="h-4 w-4 mr-2" />
@@ -412,6 +422,14 @@ export default function PatientDetailsPage({
             ? "Export Clinical Note"
             : `Export ${exportingNotes.length} Clinical Notes`
         }
+      />
+
+      {/* Edit Patient Modal */}
+      <EditPatientModal 
+        open={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        patient={patient}
+        onPatientUpdated={fetchPatientData}
       />
     </div>
   );

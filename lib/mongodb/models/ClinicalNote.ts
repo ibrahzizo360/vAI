@@ -266,12 +266,11 @@ const ClinicalNoteSchema = new Schema<IClinicalNote>({
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 })
 
-// Compound indexes for efficient queries
+// Compound indexes for efficient queries (single field indexes already defined in schema)
 ClinicalNoteSchema.index({ patient_id: 1, encounter_date: -1 })
 ClinicalNoteSchema.index({ attending_physician: 1, encounter_date: -1 })
 ClinicalNoteSchema.index({ encounter_type: 1, encounter_date: -1 })
 ClinicalNoteSchema.index({ status: 1, created_at: -1 })
-ClinicalNoteSchema.index({ tags: 1 })
 ClinicalNoteSchema.index({ urgency: 1, requires_followup: 1 })
 
 // Text search index for note content

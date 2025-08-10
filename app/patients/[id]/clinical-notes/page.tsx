@@ -28,7 +28,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import { fetchWithoutCache } from "@/lib/utils/cache";
+import { fetchWithoutCache } from "@/lib/utils/cache"
+import { EditNoteModal } from "@/components/custom/edit-note-modal";
 
 interface ClinicalNotesPageProps {
   params: {

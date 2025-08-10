@@ -182,13 +182,9 @@ const PatientSchema = new Schema<IPatient>({
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 })
 
-// Indexes for efficient querying
-PatientSchema.index({ mrn: 1 })
-PatientSchema.index({ name: 1 })
+// Additional indexes for efficient querying (mrn, name, primary_diagnosis, and status already indexed in schema)
 PatientSchema.index({ attending_physician: 1 })
 PatientSchema.index({ admission_date: -1 })
-PatientSchema.index({ primary_diagnosis: 1 })
-PatientSchema.index({ status: 1 })
 PatientSchema.index({ current_location: 1 })
 
 // Virtual for full name display
