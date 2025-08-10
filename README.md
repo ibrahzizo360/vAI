@@ -24,6 +24,29 @@
 - **📖 Documentation**: Comprehensive setup and deployment guides
 - **🛠️ Development**: Fork and contribute to the project
 
+## 📁 **Hackathon Submission Materials**
+
+### **🎬 Demo Videos & Screenshots:**
+**📂 [Complete Submission Package - Google Drive](https://drive.google.com/drive/folders/1qFlBbCXyeOdAi4VvYahKPKv3bc4XOIYC?usp=sharing)**
+
+**📋 What's Included:**
+- **🎥 Full Demo Videos**: Complete walkthrough of voice control and transcription features
+- **📸 High-Resolution Screenshots**: UI/UX showcase across desktop and mobile devices  
+- **🎤 Voice Command Demos**: "Hey vAI" wake phrase and 80+ voice commands in action
+- **📱 Mobile PWA Demo**: Installation and usage on mobile devices
+- **🏥 Clinical Workflow Videos**: Real-world usage scenarios for medical professionals
+- **🤖 AI Analysis Showcase**: SOAP note generation and clinical insights
+- **⚡ Performance Metrics**: Sub-2-second transcription speed demonstrations
+- **📊 Feature Matrix**: Comprehensive feature breakdown and technical specifications
+
+### **🎯 Quick Access Links:**
+- **🌐 [Live Demo](https://vai-neurosurgery.vercel.app/)** - Try it now
+- **📱 [Mobile PWA](https://vai-neurosurgery.vercel.app/)** - Install on your device
+- **💻 [Source Code](https://github.com/ibrahzizo360/vAI)** - Full repository
+- **📁 [Submission Materials](https://drive.google.com/drive/folders/1qFlBbCXyeOdAi4VvYahKPKv3bc4XOIYC?usp=sharing)** - Videos & screenshots
+
+---
+
 ## 🎯 **Solving the Challenge: Problem Statement 4**
 
 **AI-Powered Medical Voice-to-Text Transcription for Clinical Documentation**
