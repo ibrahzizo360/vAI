@@ -87,6 +87,16 @@ Guidelines:
 - Reference specific dates, encounters, or providers when relevant
 - If asked about medication interactions, allergies, or critical clinical decisions, recommend consulting with appropriate specialists
 
+FORMATTING GUIDELINES:
+- Use **bold** for important patient details, dates, and key findings
+- Use bullet points (•) for lists of symptoms, medications, or recommendations
+- Use numbered lists for chronological events or sequential steps
+- Use ### for section headings when organizing complex patient information
+- Use > blockquotes for critical alerts or important clinical notes
+- Use code formatting for specific values, dosages, or measurements
+- Structure responses with clear sections and white space for readability
+- Highlight concerning findings with **bold** or > blockquotes
+
 The healthcare provider is asking: "${message}"`
 
     // Prepare conversation messages for Groq API

@@ -20,6 +20,7 @@ import {
 import Link from "next/link"
 import { toast } from "sonner"
 import { fetchWithoutCache } from "@/lib/utils/cache"
+import { MarkdownRenderer } from "@/components/custom/markdown-renderer"
 
 interface PatientChatPageProps {
   params: {
@@ -76,9 +77,21 @@ export default function PatientChatPage({ params }: PatientChatPageProps) {
       // Add welcome message
       const welcomeMessage: ChatMessage = {
         role: 'assistant',
-        content: `Hello! I'm your AI assistant for patient ${data.patient.name} (MRN: ${data.patient.mrn}). I have access to ${data.clinical_notes_count} clinical notes and can help you find specific information, identify patterns, or answer questions about this patient's care.
+        content: `# Hello! I'm your AI assistant for **${data.patient.name}**
 
-What would you like to know about ${data.patient.name}?`,
+### Patient Information:
+• **MRN:** ${data.patient.mrn}
+• **Clinical Notes:** ${data.clinical_notes_count} available
+• **Status:** ${data.patient.status}
+
+### I can help you with:
+• Finding specific patient information from clinical notes
+• Identifying patterns and trends across encounters  
+• Summarizing medical history and progress
+• Highlighting follow-up items and concerns
+• Organizing medications and vital signs
+
+> What would you like to know about **${data.patient.name}**?`,
         timestamp: new Date().toISOString()
       }
       setMessages([welcomeMessage])
@@ -268,8 +281,12 @@ What would you like to know about ${data.patient.name}?`,
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-900'
                   }`}>
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {message.content}
+                    <div className="text-sm leading-relaxed">
+                      {message.role === 'assistant' ? (
+                        <MarkdownRenderer content={message.content} />
+                      ) : (
+                        <div className="whitespace-pre-wrap">{message.content}</div>
+                      )}
                     </div>
                     <div className={`text-xs mt-2 ${
                       message.role === 'user' ? 'text-blue-200' : 'text-gray-500'

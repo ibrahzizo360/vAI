@@ -15,13 +15,12 @@ import {
   Loader2,
   AlertCircle,
   Brain,
-  BarChart3,
   Stethoscope,
   BookOpen,
-  Lightbulb,
-  TrendingUp
+  Lightbulb
 } from "lucide-react"
 import { toast } from "sonner"
+import { MarkdownRenderer } from "@/components/custom/markdown-renderer"
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -69,7 +68,7 @@ const SUGGESTED_PROMPTS = [
   },
   {
     category: "System Insights",
-    icon: TrendingUp,
+    icon: Brain,
     prompts: [
       "What patterns do you see in our recent patient diagnoses?",
       "How has our clinical documentation been trending lately?",
@@ -124,17 +123,18 @@ export default function SystemChatPage() {
   const initializeWelcomeMessage = () => {
     const welcomeMessage: ChatMessage = {
       role: 'assistant',
-      content: `Welcome to the vAI Medical AI Assistant! 🏥
+      content: `# Welcome to the vAI Medical AI Assistant! 🏥
 
 I'm here to help you with:
+
 • **Clinical Decision Support** - Differential diagnoses, treatment guidelines, and protocols
-• **Medical Knowledge** - Pathophysiology, pharmacology, and evidence-based medicine
+• **Medical Knowledge** - Pathophysiology, pharmacology, and evidence-based medicine  
 • **Best Practices** - Documentation tips, patient communication, and workflow optimization
 • **System Insights** - Analytics and patterns from your clinical data (when enabled)
 
-You can ask me anything from complex medical questions to practical clinical scenarios. I'll provide evidence-based responses to support your clinical practice.
+> You can ask me anything from complex medical questions to practical clinical scenarios. I'll provide evidence-based responses to support your clinical practice.
 
-How can I assist you today?`,
+**How can I assist you today?**`,
       timestamp: new Date().toISOString()
     }
     setMessages([welcomeMessage])
@@ -253,58 +253,6 @@ How can I assist you today?`,
           </div>
         </div>
 
-        {/* System Stats */}
-        {systemStats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Patients</p>
-                    <p className="text-2xl font-bold">{systemStats.patients.total}</p>
-                  </div>
-                  <UserIcon className="h-8 w-8 text-blue-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Active Patients</p>
-                    <p className="text-2xl font-bold text-green-600">{systemStats.patients.active}</p>
-                  </div>
-                  <TrendingUp className="h-8 w-8 text-green-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Clinical Notes</p>
-                    <p className="text-2xl font-bold">{systemStats.clinical_notes.total}</p>
-                  </div>
-                  <MessageSquare className="h-8 w-8 text-purple-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Recent Notes</p>
-                    <p className="text-2xl font-bold text-orange-600">{systemStats.clinical_notes.recent_7_days}</p>
-                  </div>
-                  <BarChart3 className="h-8 w-8 text-orange-500" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Suggested Prompts */}
@@ -343,7 +291,7 @@ How can I assist you today?`,
 
           {/* Chat Interface */}
           <div className="lg:col-span-3">
-            <Card className="h-[calc(100vh-400px)] flex flex-col">
+            <Card className="h-[calc(100vh-200px)] flex flex-col">
               {/* Chat Messages */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {messages.map((message, index) => (
@@ -368,8 +316,12 @@ How can I assist you today?`,
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-900'
                       }`}>
-                        <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                          {message.content}
+                        <div className="text-sm leading-relaxed">
+                          {message.role === 'assistant' ? (
+                            <MarkdownRenderer content={message.content} />
+                          ) : (
+                            <div className="whitespace-pre-wrap">{message.content}</div>
+                          )}
                         </div>
                         <div className={`text-xs mt-2 ${
                           message.role === 'user' ? 'text-blue-200' : 'text-gray-500'
