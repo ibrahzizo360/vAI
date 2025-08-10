@@ -34,6 +34,7 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const isInitializedRef = useRef(false)
   const isStartingRef = useRef(false)
+  const hasErrorRef = useRef(false)
 
   // Check if Web Speech API is supported
   useEffect(() => {
@@ -45,7 +46,7 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
   // Process voice commands
   const processCommand = useCallback((command: string) => {
     const normalizedCommand = command.toLowerCase().trim()
-    console.log('Processing voice command:', normalizedCommand)
+    console.log('🎤 Processing voice command:', normalizedCommand)
     
     setState(prev => ({ 
       ...prev, 
@@ -86,12 +87,23 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
       if (pattern.test(normalizedCommand)) {
         wakePhrasFound = true
         actualCommand = normalizedCommand.replace(pattern, '').trim()
-        console.log('Wake phrase detected, extracted command:', actualCommand)
+        console.log('🎤 Wake phrase detected, extracted command:', actualCommand)
         break
       }
     }
+    
+    if (!wakePhrasFound) {
+      console.log('🎤 No wake phrase found in:', normalizedCommand)
+    }
+
+    // Allow simple test commands without wake phrase
+    if (normalizedCommand.includes('test voice') || normalizedCommand.includes('hello')) {
+      console.log('🎤 Simple test command detected')
+      return 'Voice control is working!'
+    }
 
     // If wake phrase found or direct command, process the command
+    // Also allow commands without wake phrase for testing
     if (wakePhrasFound || actualCommand.length > 0) {
       
       // Recording command variations
@@ -322,13 +334,14 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
         console.log('Voice recognition started')
         setState(prev => ({ ...prev, isListening: true, error: null }))
         isStartingRef.current = false
+        hasErrorRef.current = false
       }
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         const lastResult = event.results[event.results.length - 1]
         if (lastResult.isFinal) {
           const transcript = lastResult[0].transcript
-          console.log('Voice transcript:', transcript)
+          console.log('🎤 Voice transcript received:', transcript)
           
           const response = processCommand(transcript)
           if (response) {
@@ -358,21 +371,10 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
           isProcessingCommand: false
         }))
         isStartingRef.current = false
+        hasErrorRef.current = true
         
-        // Only restart for certain errors, not for aborted or not-allowed
-        if (event.error !== 'not-allowed' && event.error !== 'aborted') {
-          setTimeout(() => {
-            try {
-              if (!isStartingRef.current && recognition.readyState === 0) {
-                isStartingRef.current = true
-                recognition.start()
-              }
-            } catch (err) {
-              console.error('Failed to restart recognition:', err)
-              isStartingRef.current = false
-            }
-          }, 1000)
-        }
+        // Don't restart on any error to prevent loops
+        console.log('Voice control disabled due to error:', event.error)
       }
 
       recognition.onend = () => {
@@ -380,19 +382,20 @@ export function useVoiceControl(options: VoiceControlOptions = {}) {
         setState(prev => ({ ...prev, isListening: false }))
         isStartingRef.current = false
         
-        // Restart recognition to keep listening
-        if (enabled && state.isSupported && !isStartingRef.current) {
+        // Only restart if we haven't had errors and are still enabled
+        if (enabled && state.isSupported && !hasErrorRef.current) {
           setTimeout(() => {
             try {
-              if (!isStartingRef.current && recognition.readyState === 0) {
+              if (!isStartingRef.current && !hasErrorRef.current && enabled && state.isSupported) {
                 isStartingRef.current = true
                 recognition.start()
               }
             } catch (err) {
               console.error('Failed to restart recognition:', err)
               isStartingRef.current = false
+              hasErrorRef.current = true
             }
-          }, 100)
+          }, 500)
         }
       }
 
