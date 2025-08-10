@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Sidebar } from "@/components/custom/sidebar"
-import { UserPlus, Search, FileText, Filter, Users, Loader2, Edit } from "lucide-react"
+import { UserPlus, Search, FileText, Filter, Users, Loader2, Edit, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { fetchWithoutCache } from "@/lib/utils/cache"
@@ -56,6 +56,9 @@ export default function PatientsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
     fetchPatients()
@@ -81,6 +84,35 @@ export default function PatientsPage() {
   const handleEditPatient = (patient: Patient) => {
     setSelectedPatient(patient)
     setIsEditModalOpen(true)
+  }
+
+  const handleDeletePatient = (patient: Patient) => {
+    setPatientToDelete(patient)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!patientToDelete) return
+    
+    try {
+      setDeleteLoading(true)
+      const response = await fetch(`/api/patients/${patientToDelete._id}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete patient')
+      }
+      
+      await fetchPatients()
+      setDeleteDialogOpen(false)
+      setPatientToDelete(null)
+    } catch (err) {
+      console.error('Error deleting patient:', err)
+      setError('Failed to delete patient')
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   const filteredPatients = patients.filter(patient => 
@@ -235,6 +267,15 @@ export default function PatientsPage() {
                         >
                           <Edit className="h-3 w-3" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeletePatient(patient)}
+                          className="text-gray-500 hover:text-red-600"
+                          aria-label={`Delete ${patient.name}`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -285,6 +326,54 @@ export default function PatientsPage() {
         patient={selectedPatient}
         onPatientUpdated={fetchPatients}
       />
+
+      {/* Delete Confirmation Dialog */}
+      {deleteDialogOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-gray-900">Delete Patient</h3>
+              </div>
+            </div>
+            <div className="mb-6">
+              <p className="text-sm text-gray-500">
+                Are you sure you want to delete <strong>{patientToDelete?.name}</strong>? This action cannot be undone and will also delete all associated clinical notes and data.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false)
+                  setPatientToDelete(null)
+                }}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                disabled={deleteLoading}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete Patient'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

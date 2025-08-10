@@ -220,24 +220,25 @@ export default function PatientDetailsPage({
       <Sidebar />
       <main className="flex-1 md:ml-20 p-4 md:p-6 pb-24 md:pb-6 max-w-7xl mx-auto w-full">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 mb-6 md:mb-8">
+          <div className="flex flex-col gap-4 md:gap-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <Link href="/patients">
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Back to Patients</span>
+                  <span className="sm:hidden">Back</span>
+                </Button>
+              </Link>
+              <Badge className={getStatusColor(patient.status)}>
+                {patient.status}
+              </Badge>
+            </div>
             <div className="flex-1">
-              <div className="flex items-center gap-4 mb-4">
-                <Link href="/patients">
-                  <Button variant="ghost" size="sm">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Patients
-                  </Button>
-                </Link>
-                <Badge className={getStatusColor(patient.status)}>
-                  {patient.status}
-                </Badge>
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
                 {patient.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-6 text-gray-600">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-6 text-sm md:text-base text-gray-600">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4" />
                   <span>{patient.age}y</span>
@@ -266,30 +267,31 @@ export default function PatientDetailsPage({
                 </div>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <Button
                 variant="outline"
                 onClick={() => setIsEditModalOpen(true)}
+                className="w-full sm:w-auto"
               >
                 <Edit className="h-4 w-4 mr-2" />
-                Edit Patient
+                <span className="sm:inline">Edit Patient</span>
               </Button>
-              <Link href={`/patients/${patientId}/chat`}>
-                <Button variant="outline" className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100">
+              <Link href={`/patients/${patientId}/chat`} className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100">
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  AI Chat
+                  <span className="sm:inline">AI Chat</span>
                 </Button>
               </Link>
-              <Link href={`/patients/${patientId}/clinical-notes`}>
-                <Button className="bg-primary hover:bg-primary/90">
+              <Link href={`/patients/${patientId}/clinical-notes`} className="w-full sm:w-auto">
+                <Button className="w-full bg-primary hover:bg-primary/90">
                   <FileText className="h-4 w-4 mr-2" />
-                  View All Notes
+                  <span className="sm:inline">View All Notes</span>
                 </Button>
               </Link>
-              <Link href={`/patients/${patientId}/documents`}>
-                <Button variant="outline">
+              <Link href={`/patients/${patientId}/documents`} className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full">
                   <Upload className="h-4 w-4 mr-2" />
-                  Documents & Media
+                  <span className="sm:inline">Documents & Media</span>
                 </Button>
               </Link>
             </div>

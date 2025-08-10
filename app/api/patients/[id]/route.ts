@@ -103,13 +103,50 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
+// DELETE /api/patients/[id] - Delete patient
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  try {
+    await connectDB()
+    
+    const { id } = params
+    const patientId = id
+    
+    // Delete all clinical notes associated with this patient
+    await ClinicalNote.deleteMany({ patient_id: patientId })
+    
+    // Delete the patient
+    const deletedPatient = await Patient.findByIdAndDelete(patientId)
+    
+    if (!deletedPatient) {
+      return NextResponse.json(
+        { error: 'Patient not found' },
+        { status: 404 }
+      )
+    }
+    
+    const response = NextResponse.json({
+      message: 'Patient and associated data deleted successfully'
+    })
+    
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+    return response
+    
+  } catch (error) {
+    console.error('Error deleting patient:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete patient' },
+      { status: 500 }
+    )
+  }
+}
+
 // Handle CORS for development
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     },
   })
