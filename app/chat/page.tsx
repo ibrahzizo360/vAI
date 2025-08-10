@@ -254,8 +254,8 @@ I'm here to help you with:
 
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
-          {/* Suggested Prompts */}
-          <div className="lg:col-span-1 space-y-4 order-2 lg:order-1">
+          {/* Suggested Prompts - Hidden on Mobile */}
+          <div className="hidden lg:block lg:col-span-1 space-y-4">
             <Card className="lg:sticky lg:top-4">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base md:text-lg flex items-center gap-2">
@@ -289,8 +289,8 @@ I'm here to help you with:
           </div>
 
           {/* Chat Interface */}
-          <div className="lg:col-span-3 order-1 lg:order-2">
-            <Card className="h-[calc(100vh-280px)] md:h-[calc(100vh-200px)] flex flex-col">
+          <div className="lg:col-span-3 col-span-1">
+            <Card className="h-[calc(100vh-220px)] md:h-[calc(100vh-200px)] flex flex-col">
               {/* Chat Messages */}
               <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 md:space-y-4">
                 {messages.map((message, index) => (

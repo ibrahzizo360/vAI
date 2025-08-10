@@ -73,15 +73,17 @@ export class EMRExportService {
   }
 
   private static async exportToPDF(noteData: NoteWithPatient, options: EMRExportOptions): Promise<ExportedDocument> {
-    // For a real implementation, you would use a PDF library like jsPDF or puppeteer
-    const textContent = this.generateFormattedText(noteData, options)
+    // Generate HTML content for PDF conversion
+    const htmlContent = this.generateHTMLContent(noteData, options)
     
+    // For now, return as HTML with PDF extension - browser will handle conversion
+    // In production, you would use puppeteer, jsPDF, or a PDF generation service
     return {
-      format: 'pdf',
-      content: textContent, // In real implementation, this would be PDF buffer
-      filename: `${noteData.patient.name?.replace(/\\s+/g, '_') || 'patient'}_${noteData.note.encounter_type}_${new Date().toISOString().split('T')[0]}.pdf`,
-      mime_type: 'application/pdf',
-      size: textContent.length,
+      format: 'html', // Changed from 'pdf' to 'html' to avoid PDF parsing errors
+      content: htmlContent,
+      filename: `${noteData.patient.name?.replace(/\\s+/g, '_') || 'patient'}_${noteData.note.encounter_type}_${new Date().toISOString().split('T')[0]}.html`,
+      mime_type: 'text/html', // Changed from 'application/pdf' to 'text/html'
+      size: htmlContent.length,
       generated_at: new Date().toISOString()
     }
   }
@@ -168,6 +170,148 @@ export class EMRExportService {
   }
 
   // Format generators
+  private static generateHTMLContent(noteData: NoteWithPatient, options: EMRExportOptions): string {
+    const { note, patient } = noteData
+    
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${this.formatEncounterType(note.encounter_type)} Note - ${patient.name}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .header {
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2563eb;
+            margin: 0;
+            font-size: 28px;
+        }
+        .patient-info, .encounter-info, .note-section {
+            margin-bottom: 25px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .info-item {
+            background: #f9fafb;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #374151;
+        }
+        .note-content {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2563eb;
+            white-space: pre-wrap;
+        }
+        .metadata {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>${this.formatEncounterType(note.encounter_type).toUpperCase()} NOTE</h1>
+        <p style="margin: 5px 0; font-size: 16px; color: #6b7280;">Generated on ${new Date().toLocaleDateString()}</p>
+    </div>
+    
+    ${options.patient_identifiers ? `
+    <div class="patient-info">
+        <div class="section-title">Patient Information</div>
+        <div class="info-grid">
+            ${patient.name ? `<div class="info-item"><span class="info-label">Name:</span> ${patient.name}</div>` : ''}
+            ${patient.mrn ? `<div class="info-item"><span class="info-label">MRN:</span> ${patient.mrn}</div>` : ''}
+            ${patient.dob ? `<div class="info-item"><span class="info-label">DOB:</span> ${new Date(patient.dob).toLocaleDateString()}</div>` : ''}
+            ${patient.age ? `<div class="info-item"><span class="info-label">Age:</span> ${patient.age}</div>` : ''}
+            ${patient.sex ? `<div class="info-item"><span class="info-label">Sex:</span> ${patient.sex}</div>` : ''}
+            ${patient.primary_diagnosis ? `<div class="info-item"><span class="info-label">Primary Diagnosis:</span> ${patient.primary_diagnosis}</div>` : ''}
+        </div>
+    </div>
+    ` : ''}
+    
+    <div class="encounter-info">
+        <div class="section-title">Encounter Information</div>
+        <div class="info-grid">
+            <div class="info-item"><span class="info-label">Date:</span> ${new Date(note.encounter_date).toLocaleDateString()}</div>
+            <div class="info-item"><span class="info-label">Time:</span> ${new Date(note.encounter_date).toLocaleTimeString()}</div>
+            <div class="info-item"><span class="info-label">Type:</span> ${this.formatEncounterType(note.encounter_type)}</div>
+            <div class="info-item"><span class="info-label">Location:</span> ${note.encounter_location}</div>
+            <div class="info-item"><span class="info-label">Attending Physician:</span> ${note.attending_physician}</div>
+            ${note.primary_provider !== note.attending_physician ? `<div class="info-item"><span class="info-label">Primary Provider:</span> ${note.primary_provider}</div>` : ''}
+        </div>
+    </div>
+    
+    ${Object.entries(note.note_sections).map(([sectionId, content]) => `
+    <div class="note-section">
+        <div class="section-title">${this.formatSectionTitle(sectionId)}</div>
+        <div class="note-content">${content || 'No content documented.'}</div>
+    </div>
+    `).join('')}
+    
+    ${options.include_metadata ? `
+    <div class="metadata">
+        <div class="section-title">Document Metadata</div>
+        <div class="info-grid">
+            <div class="info-item"><span class="info-label">Status:</span> ${note.status}</div>
+            <div class="info-item"><span class="info-label">Completeness Score:</span> ${note.completeness_score}%</div>
+            <div class="info-item"><span class="info-label">Created:</span> ${new Date(note.created_at).toLocaleString()}</div>
+            <div class="info-item"><span class="info-label">Last Modified:</span> ${new Date(note.updated_at).toLocaleString()}</div>
+        </div>
+    </div>
+    ` : ''}
+    
+    ${options.provider_signature ? `
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        <div class="section-title">Provider Signature</div>
+        <div class="note-content">
+            ${options.provider_signature}<br>
+            <em>Electronically signed on ${new Date().toLocaleString()}</em>
+        </div>
+    </div>
+    ` : ''}
+    
+    <div class="no-print" style="margin-top: 30px; text-align: center; font-size: 14px; color: #6b7280;">
+        <p>To convert to PDF: Press Ctrl+P (Cmd+P on Mac) and select "Save as PDF"</p>
+    </div>
+</body>
+</html>`
+  }
+
   private static generateFormattedText(noteData: NoteWithPatient, options: EMRExportOptions): string {
     const { note, patient } = noteData
     const lines: string[] = []

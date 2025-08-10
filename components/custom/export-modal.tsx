@@ -28,7 +28,7 @@ export function ExportModal({ isOpen, onClose, notes, title = "Export Notes" }: 
   const [isExporting, setIsExporting] = useState(false)
 
   const formatOptions = [
-    { value: "pdf", label: "PDF Document", description: "Formatted PDF for sharing and printing" },
+    { value: "pdf", label: "PDF Document", description: "HTML format ready for PDF conversion (Ctrl+P to save as PDF)" },
     { value: "text", label: "Plain Text", description: "Simple text format" },
     { value: "rtf", label: "Rich Text Format", description: "Compatible with word processors" }
   ]
