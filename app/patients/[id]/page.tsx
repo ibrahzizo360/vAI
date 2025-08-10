@@ -25,6 +25,7 @@ import {
   TrendingDown,
   Minus,
   Edit,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { fetchWithoutCache } from "@/lib/utils/cache";
@@ -273,6 +274,12 @@ export default function PatientDetailsPage({
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Patient
               </Button>
+              <Link href={`/patients/${patientId}/chat`}>
+                <Button variant="outline" className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  AI Chat
+                </Button>
+              </Link>
               <Link href={`/patients/${patientId}/clinical-notes`}>
                 <Button className="bg-primary hover:bg-primary/90">
                   <FileText className="h-4 w-4 mr-2" />

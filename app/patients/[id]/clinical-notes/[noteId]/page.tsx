@@ -9,12 +9,13 @@ import { Sidebar } from "@/components/custom/sidebar"
 import { MedicalSyntaxHighlighter } from "@/components/custom/medical-syntax-highlighter"
 import { 
   ArrowLeft, User, FileText, Calendar, Clock, Bot, Download, 
-  Printer, Clipboard, AlertCircle, ChevronDown, Loader2, RefreshCw 
+  Printer, Clipboard, AlertCircle, ChevronDown, Loader2, RefreshCw, Edit, MessageSquare 
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { fetchWithoutCache } from "@/lib/utils/cache"
+import { EditNoteModal } from "@/components/custom/edit-note-modal"
 
 interface ClinicalNotePageProps {
   params: {
@@ -80,6 +81,7 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -169,9 +171,60 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
     window.print()
   }
 
-  const exportNote = () => {
-    toast.info('Export functionality coming soon')
-    // Implement actual export logic here
+  const exportNote = async () => {
+    if (!note || !patient) return
+    
+    try {
+      const noteWithPatient = {
+        note,
+        patient
+      }
+      
+      const response = await fetch('/api/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notes: [noteWithPatient],
+          export_options: {
+            format: 'text',
+            include_metadata: true,
+            include_timestamps: true,
+            patient_identifiers: true
+          }
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        
+        // Convert base64 to blob and download
+        const binaryString = atob(result.content)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
+        
+        const blob = new Blob([bytes], { type: result.export_info.mime_type })
+        const url = URL.createObjectURL(blob)
+        
+        const a = document.createElement('a')
+        a.href = url
+        a.download = result.export_info.filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+
+        toast.success('Note exported successfully!')
+      } else {
+        throw new Error('Export failed')
+      }
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error('Failed to export note')
+    }
   }
 
   if (loading && (!patient || !note)) {
@@ -271,6 +324,16 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
               </div>
             </div>
             <div className="flex gap-3">
+              <Link href={`/patients/${patientId}/chat`}>
+                <Button variant="outline" className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  AI Chat
+                </Button>
+              </Link>
+              <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Note
+              </Button>
               <Button variant="outline" onClick={printNote}>
                 <Printer className="h-4 w-4 mr-2" />
                 Print
@@ -289,6 +352,108 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">          
+          
+          {/* Left Column - Note Content */}
+          <div className="lg:col-span-2 space-y-6">
+            <Tabs defaultValue="structured" className="w-full">
+              <TabsList>
+                <TabsTrigger value="structured">Structured Note</TabsTrigger>
+                <TabsTrigger value="raw">Raw Transcript</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="structured" className="space-y-4">
+                {note.note_sections.subjective && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Subjective</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="prose prose-sm max-w-none">
+                        <MedicalSyntaxHighlighter text={note.note_sections.subjective} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {note.note_sections.objective && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Objective</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="prose prose-sm max-w-none">
+                        <MedicalSyntaxHighlighter text={note.note_sections.objective} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {note.note_sections.assessment_plan && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Assessment & Plan</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="prose prose-sm max-w-none">
+                        <MedicalSyntaxHighlighter text={note.note_sections.assessment_plan} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="raw">
+                {note.raw_transcript ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Raw Transcript</CardTitle>
+                      <CardDescription>
+                        Original audio transcription before AI processing
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm leading-relaxed text-gray-700">
+                          {note.raw_transcript}
+                        </p>
+                      </div>
+                      {note.audio_metadata && (
+                        <div className="mt-4 pt-4 border-t">
+                          <h4 className="font-medium mb-2">Audio Metadata</h4>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            {note.audio_metadata.duration_seconds && (
+                              <div>
+                                <span className="text-gray-500">Duration:</span>
+                                <span className="ml-2">{Math.round(note.audio_metadata.duration_seconds)}s</span>
+                              </div>
+                            )}
+                            {note.audio_metadata.transcription_provider && (
+                              <div>
+                                <span className="text-gray-500">Provider:</span>
+                                <span className="ml-2">{note.audio_metadata.transcription_provider}</span>
+                              </div>
+                            )}
+                            {note.audio_metadata.transcription_confidence && (
+                              <div>
+                                <span className="text-gray-500">Confidence:</span>
+                                <span className="ml-2">{Math.round(note.audio_metadata.transcription_confidence * 100)}%</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 text-center text-gray-500">
+                      No raw transcript available for this note.
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
 
           {/* Right Column - Metadata and Extracted Data */}
           <div className="space-y-6">
@@ -397,6 +562,15 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
           </div>
         </div>
       </main>
+
+      {/* Edit Note Modal */}
+      <EditNoteModal
+        open={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        note={note}
+        patientId={patientId}
+        onNoteUpdated={fetchData}
+      />
     </div>
   )
 }

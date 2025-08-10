@@ -26,10 +26,13 @@ import {
   Eye,
   ChevronDown,
   TrendingUp,
+  Edit,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { fetchWithoutCache } from "@/lib/utils/cache"
 import { EditNoteModal } from "@/components/custom/edit-note-modal";
+import { ExportModal } from "@/components/custom/export-modal";
 
 interface ClinicalNotesPageProps {
   params: {
@@ -106,6 +109,8 @@ export default function ClinicalNotesPage({ params }: ClinicalNotesPageProps) {
   const [filterType, setFilterType] = useState("all");
   const [sortBy, setSortBy] = useState("date");
   const [selectedNote, setSelectedNote] = useState<ClinicalNote | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   useEffect(() => {
     fetchPatientData();
@@ -137,6 +142,15 @@ export default function ClinicalNotesPage({ params }: ClinicalNotesPageProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditNote = (note: ClinicalNote) => {
+    setSelectedNote(note);
+    setIsEditModalOpen(true);
+  };
+
+  const handleExportAll = () => {
+    setIsExportModalOpen(true);
   };
 
   const formatEncounterType = (type: string) => {
@@ -285,7 +299,17 @@ export default function ClinicalNotesPage({ params }: ClinicalNotesPageProps) {
               </div>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline">
+              <Link href={`/patients/${patientId}/chat`}>
+                <Button variant="outline" className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  AI Chat
+                </Button>
+              </Link>
+              <Button 
+                variant="outline"
+                onClick={() => handleExportAll()}
+                disabled={notes.length === 0}
+              >
                 <Download className="h-4 w-4 mr-2" />
                 Export All
               </Button>
@@ -471,13 +495,22 @@ export default function ClinicalNotesPage({ params }: ClinicalNotesPageProps) {
                           {note.completeness_score}%
                         </p>
                       </div>
-                      <Link
-                        href={`/patients/${patientId}/clinical-notes/${note._id}`}
-                      >
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditNote(note)}
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
-                      </Link>
+                        <Link
+                          href={`/patients/${patientId}/clinical-notes/${note._id}`}
+                        >
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </div>
 
@@ -537,6 +570,30 @@ export default function ClinicalNotesPage({ params }: ClinicalNotesPageProps) {
           )}
         </div>
       </main>
+
+      {/* Edit Note Modal */}
+      <EditNoteModal
+        open={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedNote(null);
+        }}
+        note={selectedNote}
+        patientId={patientId}
+        onNoteUpdated={() => {
+          fetchNotes();
+          setIsEditModalOpen(false);
+          setSelectedNote(null);
+        }}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        notes={sortedNotes.map(note => ({ note, patient }))}
+        title={`Export ${sortedNotes.length} Clinical Notes`}
+      />
     </div>
   );
 }

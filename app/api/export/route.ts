@@ -21,14 +21,20 @@ export async function POST(request: NextRequest) {
       provider_signature: export_options?.provider_signature
     }
     
+    // Transform notes data to match expected format
+    const transformedNotes = notes.map(noteData => ({
+      note: noteData.note || noteData,
+      patient: noteData.patient
+    }))
+    
     let exportedDocument
     
-    if (notes.length === 1) {
+    if (transformedNotes.length === 1) {
       // Single note export
-      exportedDocument = await EMRExportService.exportMedicalNote(notes[0], options)
+      exportedDocument = await EMRExportService.exportMedicalNote(transformedNotes[0], options)
     } else {
       // Multiple notes export
-      exportedDocument = await EMRExportService.exportMultipleNotes(notes, {
+      exportedDocument = await EMRExportService.exportMultipleNotes(transformedNotes, {
         ...options,
         bundle_format: export_options?.bundle_format || 'zip'
       })

@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Loader2, UserEdit } from "lucide-react"
+import { Loader2, Edit } from "lucide-react"
 
 const patientEditSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -205,7 +205,7 @@ export function EditPatientModal({ open, onClose, patient, onPatientUpdated }: E
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <UserEdit className="h-5 w-5" />
+            <Edit className="h-5 w-5" />
             Edit Patient: {patient.name}
           </DialogTitle>
           <DialogDescription>
@@ -461,7 +461,7 @@ export function EditPatientModal({ open, onClose, patient, onPatientUpdated }: E
                   </>
                 ) : (
                   <>
-                    <UserEdit className="h-4 w-4 mr-2" />
+                    <Edit className="h-4 w-4 mr-2" />
                     Update Patient
                   </>
                 )}
