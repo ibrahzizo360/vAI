@@ -76,6 +76,9 @@ interface Patient {
     route: string;
     started_date: string;
   }>;
+  admission_source: string;
+  past_medical_history: string[];
+  allergies: string[];
 }
 
 interface ClinicalNote {

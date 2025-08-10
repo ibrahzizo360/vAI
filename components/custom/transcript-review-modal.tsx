@@ -232,11 +232,19 @@ export function TranscriptReviewModal({ isOpen, onClose, transcriptData }: Trans
                   
                   return (
                     <Tabs defaultValue="structured" className="w-full">
-                      <TabsList className="grid w-full grid-cols-4 mb-4">
-                        <TabsTrigger value="structured" className="text-xs">Structured Note</TabsTrigger>
-                        <TabsTrigger value="findings" className="text-xs">Key Findings</TabsTrigger>
-                        <TabsTrigger value="encounter" className="text-xs">Encounter Info</TabsTrigger>
-                        <TabsTrigger value="patient" className="text-xs">Patient Info</TabsTrigger>
+                      <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-4 h-auto">
+                        <TabsTrigger value="structured" className="text-xs sm:text-sm py-2 px-1 sm:px-3">
+                          <span className="truncate">Structured Note</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="findings" className="text-xs sm:text-sm py-2 px-1 sm:px-3">
+                          <span className="truncate">Key Findings</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="encounter" className="text-xs sm:text-sm py-2 px-1 sm:px-3">
+                          <span className="truncate">Encounter Info</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="patient" className="text-xs sm:text-sm py-2 px-1 sm:px-3">
+                          <span className="truncate">Patient Info</span>
+                        </TabsTrigger>
                       </TabsList>
 
                       <TabsContent value="structured" className="space-y-3">

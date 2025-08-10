@@ -9,7 +9,7 @@ import { Sidebar } from "@/components/custom/sidebar"
 import { MedicalSyntaxHighlighter } from "@/components/custom/medical-syntax-highlighter"
 import { 
   ArrowLeft, User, FileText, Calendar, Clock, Bot, Download, 
-  Printer, Clipboard, AlertCircle, ChevronDown, Loader2, RefreshCw, Edit, MessageSquare 
+  Printer, Clipboard, AlertCircle, ChevronDown, Loader2, RefreshCw, Edit, MessageSquare, Trash2 
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -82,6 +82,8 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -227,6 +229,34 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
     }
   }
 
+  const handleDeleteNote = () => {
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!note) return
+    
+    try {
+      setDeleteLoading(true)
+      const response = await fetch(`/api/patients/${patientId}/notes/${noteId}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete note')
+      }
+      
+      toast.success('Note deleted successfully!')
+      router.push(`/patients/${patientId}/clinical-notes`)
+    } catch (err) {
+      console.error('Error deleting note:', err)
+      toast.error('Failed to delete note')
+    } finally {
+      setDeleteLoading(false)
+      setDeleteDialogOpen(false)
+    }
+  }
+
   if (loading && (!patient || !note)) {
     return (
       <div className="relative flex min-h-screen bg-secondary">
@@ -345,6 +375,14 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
               <Button onClick={exportNote}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteNote}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
               </Button>
             </div>
           </div>
@@ -571,6 +609,51 @@ export default function ClinicalNotePage({ params }: ClinicalNotePageProps) {
         patientId={patientId}
         onNoteUpdated={fetchData}
       />
+
+      {/* Delete Confirmation Dialog */}
+      {deleteDialogOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-gray-900">Delete Clinical Note</h3>
+              </div>
+            </div>
+            <div className="mb-6">
+              <p className="text-sm text-gray-500">
+                Are you sure you want to delete this {formatEncounterType(note?.encounter_type || '')} note from {note ? formatDate(note.encounter_date) : ''}? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(false)}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                disabled={deleteLoading}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete Note'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
