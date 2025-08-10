@@ -234,7 +234,7 @@ export function FloatingRecordingControls({ onRecordingStop }: FloatingRecording
         <Button
           variant="default"
           size="icon"
-          className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-red-600 text-white shadow-xl hover:bg-red-700 transition-all duration-200 hover:scale-105 animate-pulse"
+          className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-red-600 text-white shadow-xl hover:bg-red-700 transition-all duration-200 hover:scale-105"
           onClick={startRecording}
           aria-label="Start recording"
         >
