@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { Home, Clock, Users, Mic, Menu, X } from "lucide-react"
+import { Home, Clock, Users, Mic, Menu, X, Brain } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function Sidebar() {
@@ -26,6 +26,7 @@ export function Sidebar() {
     { name: "Home", href: "/", icon: Home },
     { name: "Recent", href: "/history", icon: Clock },
     { name: "Patients", href: "/patients", icon: Users },
+    { name: "AI Chat", href: "/chat", icon: Brain },
   ]
 
   const handleLinkClick = () => {
