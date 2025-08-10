@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Pause, Play, StopCircle, Mic, Loader2, X } from "lucide-react"
 import { useAudioLevel } from "@/hooks/useAudioLevel"
 import { CircularAudioLevelVisualizer } from "./audio-level-visualizer"
 import { TranscriptionClient } from "@/lib/client/transcription-client"
+import { useVoiceControl } from "@/hooks/useVoiceControl"
+import { VoiceControlIndicator } from "./voice-control-indicator"
 // Removed usePathname as it's no longer needed for global visibility
 
 interface TranscriptionData {
@@ -202,13 +204,37 @@ export function FloatingRecordingControls({ onRecordingStop }: FloatingRecording
     audioChunksRef.current = []
   }
 
+  // Voice control integration
+  const handleVoiceStartRecording = useCallback(async () => {
+    if (!isRecording && !isTranscribing && !isAnalyzing) {
+      await startRecording()
+    }
+  }, [isRecording, isTranscribing, isAnalyzing])
+
+  const voiceControl = useVoiceControl({
+    onStartRecording: handleVoiceStartRecording,
+    enabled: !isRecording // Disable voice control during recording to avoid conflicts
+  })
+
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 bg-white p-2 sm:p-3 rounded-full shadow-lg border border-gray-200 max-w-[calc(100vw-2rem)] overflow-hidden">
+    <>
+      {/* Voice Control Indicator */}
+      <VoiceControlIndicator 
+        isListening={voiceControl.isListening}
+        isProcessingCommand={voiceControl.isProcessingCommand}
+        lastCommand={voiceControl.lastCommand}
+        isSupported={voiceControl.isSupported}
+        error={voiceControl.error}
+        onActivate={voiceControl.activate}
+      />
+      
+      {/* Recording Controls */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 bg-white p-2 sm:p-3 rounded-full shadow-lg border border-gray-200 max-w-[calc(100vw-2rem)] overflow-hidden">
       {!isRecording && !isTranscribing && !isAnalyzing && (
         <Button
           variant="default"
           size="icon"
-          className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-red-600 text-white shadow-xl hover:bg-red-700 transition-all duration-300 hover:scale-105 animate-pulse"
+          className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-red-600 text-white shadow-xl hover:bg-red-700 transition-all duration-[5000] hover:scale-105 animate-pulse"
           onClick={startRecording}
           aria-label="Start recording"
         >
@@ -282,6 +308,7 @@ export function FloatingRecordingControls({ onRecordingStop }: FloatingRecording
           </Button>
         </>
       )}
-    </div>
+      </div>
+    </>
   )
 }
