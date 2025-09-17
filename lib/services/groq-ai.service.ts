@@ -42,7 +42,7 @@ export class GroqAIService {
 
   async chatCompletion(
     messages: GroqMessage[], 
-    model = 'llama3-70b-8192', // Groq's most capable model for analysis
+    model = 'llama-3.3-70b-versatile', // Groq's most capable model for analysis
     options?: {
       temperature?: number
       max_tokens?: number
@@ -94,7 +94,7 @@ export class GroqAIService {
   // Available Groq models for different use cases (current as of 2024)
   static readonly MODELS = {
     // Latest and most capable models
-    LLAMA3_70B: 'llama3-70b-8192',        // Most capable for complex analysis
+    LLAMA3_70B: 'llama-3.3-70b-versatile',        // Most capable for complex analysis
     LLAMA3_8B: 'llama3-8b-8192',          // Fast and efficient
     // Gemma models
     GEMMA_7B: 'gemma-7b-it',              // Google's Gemma model
