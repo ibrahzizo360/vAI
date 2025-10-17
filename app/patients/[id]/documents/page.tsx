@@ -11,9 +11,9 @@ import Link from "next/link"
 import { fetchWithoutCache } from "@/lib/utils/cache"
 
 interface PatientDocumentsPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 interface Patient {
@@ -31,13 +31,23 @@ interface Patient {
 }
 
 export default function PatientDocumentsPage({ params }: PatientDocumentsPageProps) {
-  const patientId = params.id
+  const [patientId, setPatientId] = useState<string>("")
   const [patient, setPatient] = useState<Patient | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchPatientData()
+    const getPatientId = async () => {
+      const resolvedParams = await params
+      setPatientId(resolvedParams.id)
+    }
+    getPatientId()
+  }, [params])
+
+  useEffect(() => {
+    if (patientId) {
+      fetchPatientData()
+    }
   }, [patientId])
 
   const fetchPatientData = async () => {
@@ -70,7 +80,7 @@ export default function PatientDocumentsPage({ params }: PatientDocumentsPagePro
     return (
       <div className="relative flex min-h-screen bg-secondary">
         <Sidebar />
-        <div className="flex-1 md:ml-20 flex items-center justify-center">
+        <div className="flex-1 md:ml-24 flex items-center justify-center">
           <div className="text-center">
             <p className="text-gray-600">Loading patient data...</p>
           </div>
@@ -83,7 +93,7 @@ export default function PatientDocumentsPage({ params }: PatientDocumentsPagePro
     return (
       <div className="relative flex min-h-screen bg-secondary">
         <Sidebar />
-        <div className="flex-1 md:ml-20 flex items-center justify-center">
+        <div className="flex-1 md:ml-24 flex items-center justify-center">
           <div className="text-center">
             <p className="text-red-600 mb-2">Error loading patient</p>
             <p className="text-gray-500 text-sm mb-4">{error}</p>
@@ -99,7 +109,7 @@ export default function PatientDocumentsPage({ params }: PatientDocumentsPagePro
   return (
     <div className="relative flex min-h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 p-6 pb-20 max-w-7xl mx-auto w-full">
+      <main className="flex-1 p-6 pb-20 max-w-7xl mx-auto w-full md:ml-24">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
